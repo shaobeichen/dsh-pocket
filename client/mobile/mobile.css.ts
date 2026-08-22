@@ -194,13 +194,21 @@ export const MOBILE_CSS = `
      the viewport. A mere -100% leaves a sliver on screen; -105% (as used
      before) left 14px of the drawer plus a long 32px-blur shadow gradient
      visible along the left edge of the main UI. No box-shadow at all: the
-     dimmed backdrop already separates drawer from content. */
+     dimmed backdrop already separates drawer from content.
+     Z-index note: the backdrop renders inside the shell's overlay layer
+     ([data-shell-overlay]), which forms its own stacking context. Third-party
+     plugins can force that layer up with !important (dsh-update-checker sets
+     it to 500), and when the layer outranks the drawer, the backdrop paints
+     ABOVE the drawer and swallows every tap — the drawer opens but no row
+     can be pressed (every tap just closes it). The drawer must therefore
+     outrank any such raise: 600 clears the known 500 while staying under the
+     fixed-position banners/toasts (z 9999) that float at the viewport level. */
   [data-mobile-nav="frame"] > :first-child {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
     max-width: 92vw !important;
-    z-index: 40 !important;
+    z-index: 600 !important;
     transform: translateX(-110%);
     transition: transform .28s var(--ds-ease-in-out, ease-in-out);
     background: var(--dsw-alias-bg-base, #ffffff);
