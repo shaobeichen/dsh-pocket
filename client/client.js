@@ -1290,9 +1290,115 @@ function mobileApply(ctx) {
   }, MobileDrawerFooter));
 }
 
+// client/pocket-locales.js
+var NS2 = "pocket";
+var zh2 = {
+  "section": "\u624B\u673A\u8BBF\u95EE",
+  "title": "\u{1F4F1} \u624B\u673A\u8BBF\u95EE",
+  "subtitle": "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65",
+  "developer": "\u5F00\u53D1\u8005\uFF1A\u7A0B\u5E8F\u5458\u5C11\u5317\u6668",
+  "starAsk": "\u2B50 \u987A\u624B\u7559\u9897 Star\uFF0C\u4F5C\u8005\u80FD\u9AD8\u5174\u4E00\u6574\u5929",
+  "starCta": "\u884C\uFF0C\u7ED9\u4F60\u4E00\u9897 Star",
+  "restarted": "\u{1F504} \u5DF2\u91CD\u542F",
+  "ok": "\u77E5\u9053\u4E86",
+  "bgHint": "\u8FDB\u7A0B\u5728\u540E\u53F0\u8FD0\u884C\uFF08\u4E0D\u6302\u7EC8\u7AEF\uFF09\u3002\u5982\u9700\u505C\u6B62\uFF1A{cmd}",
+  "updatedRestart": "\u2705 \u5DF2\u66F4\u65B0 v{ver}\uFF0C\u91CD\u542F\u751F\u6548",
+  "updateAutoRestarting": "\u2705 \u5DF2\u66F4\u65B0 v{ver}\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u542F\u2026",
+  "updatedOk": "\u2705 \u5DF2\u66F4\u65B0 v{ver}",
+  "updateAvailable": "\u{1F4E6} \u65B0\u7248\u672C v{ver}",
+  "updating": "\u66F4\u65B0\u4E2D\u2026",
+  "updateTo": "\u66F4\u65B0\u5230 v{ver}",
+  "restartingNow": "\u6B63\u5728\u91CD\u542F\u751F\u6548\u2026",
+  "restarting": "\u91CD\u542F\u4E2D\u2026",
+  "restartNow": "\u{1F504} \u91CD\u542F dsh web \u751F\u6548",
+  "updatingDetail": "\u23F3 \u66F4\u65B0\u4E2D\uFF08\u901A\u5E38 1-2 \u5206\u949F\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2",
+  "restartingDetail": "\u23F3 \u6B63\u5728\u91CD\u542F\u751F\u6548\uFF08\u901A\u5E38 10-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2",
+  "updatedAutoDetail": "\u2705 \u5DF2\u66F4\u65B0\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u542F\u751F\u6548\uFF0C\u8BF7\u7A0D\u5019\u5237\u65B0",
+  "updatedRestartDetail": "\u2705 \u5DF2\u66F4\u65B0\uFF0C\u91CD\u542F dsh web \u751F\u6548",
+  "updateFailed": "\u274C \u5931\u8D25\uFF1A{err}\uFF08\u624B\u52A8\u66F4\u65B0\uFF1Adsh plugin --profile web update dsh-pocket --latest -w\uFF09",
+  "versionRange": "\u5F53\u524D v{cur} \u2192 \u6700\u65B0 v{latest}",
+  "lanTitle": "\u{1F4F6} \u5C40\u57DF\u7F51\uFF08\u540C\u4E00 WiFi\uFF09",
+  "lanHint": "\u624B\u673A\u8FDE\u63A5\u540C\u4E00 WiFi \u540E\u626B\u7801\u5373\u53EF\u6253\u5F00",
+  "lanPin": "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5BC6\u7801",
+  "on": "\u5F00",
+  "off": "\u5173",
+  "lanPinValue": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF1B\u4E0E\u516C\u7F51\u5BC6\u7801\u5206\u5F00\uFF09",
+  "refresh": "\u5237\u65B0",
+  "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
+  "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
+  "wanTitle": "\u{1F310} \u516C\u7F51\uFF08\u4EBA\u5728\u5916\u9762\uFF09",
+  "wanHint": "\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528\uFF08URL \u6BCF\u6B21\u91CD\u542F\u81EA\u52A8\u6362\u65B0\uFF09",
+  "wanPin": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u6BCF\u6B21\u5F00\u542F\u516C\u7F51\u53D8\u65B0\uFF1B\u624B\u673A\u6253\u5F00\u94FE\u63A5\u9700\u8F93\u5165\u6B64\u5BC6\u7801\uFF09",
+  "stopTunnel": "\u5173\u95ED\u516C\u7F51",
+  "enable": "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE",
+  "opening": "\u5F00\u542F\u4E2D\u2026",
+  "downloading": "\u23F3 \u4E0B\u8F7D cloudflared\uFF08\u9996\u6B21\u7EA6 20-50MB\uFF0C\u901A\u5E38 1-2 \u5206\u949F\uFF1B\u4E4B\u540E\u79D2\u5F00\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2",
+  "connecting": "\u23F3 \u8FDE\u63A5 Cloudflare \u8FB9\u7F18\uFF08\u901A\u5E38 5-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2{suffix}",
+  "slowHint": " \u2014 \u6709\u70B9\u4E45\uFF1F\u68C0\u67E5\u662F\u5426\u5F00\u7740\u4EE3\u7406/VPN\uFF08Clash TUN \u7B49\uFF09",
+  "error": "\u274C \u5F00\u542F\u5931\u8D25\uFF1A{detail}\uFF08\u53EF\u91CD\u8BD5\uFF1B\u82E5\u662F\u4EE3\u7406/VPN \u95EE\u9898\u89C1 README \u6392\u969C\uFF09",
+  "unknownError": "\u672A\u77E5\u9519\u8BEF",
+  "feedback": "\u6709\u95EE\u9898\uFF1F\u6B22\u8FCE\u5230 GitHub Issues \u53CD\u9988 \u{1F64F}"
+};
+var en2 = {
+  "section": "Phone access",
+  "title": "\u{1F4F1} Phone access",
+  "subtitle": "The phone shows this exact screen, live",
+  "developer": "Developer: \u5C11\u5317\u6668 (shaobeichen)",
+  "starAsk": "\u2B50 Drop a Star if it helped \u2014 it makes the author\u2019s day",
+  "starCta": "\u2605 Give a Star",
+  "restarted": "\u{1F504} Restarted",
+  "ok": "Got it",
+  "bgHint": "Running in the background (not attached to a terminal). To stop: {cmd}",
+  "updatedRestart": "\u2705 Updated to v{ver} \u2014 restart to apply",
+  "updateAutoRestarting": "\u2705 Updated to v{ver} \u2014 auto-restarting\u2026",
+  "updatedOk": "\u2705 Updated to v{ver}",
+  "updateAvailable": "\u{1F4E6} Update available: v{ver}",
+  "updating": "Updating\u2026",
+  "updateTo": "Update to v{ver}",
+  "restartingNow": "Restarting to apply\u2026",
+  "restarting": "Restarting\u2026",
+  "restartNow": "\u{1F504} Restart dsh web now",
+  "updatingDetail": "\u23F3 Updating (usually 1-2 min) \xB7 {s}s elapsed",
+  "restartingDetail": "\u23F3 Restarting to apply (usually 10-30s) \xB7 {s}s elapsed",
+  "updatedAutoDetail": "\u2705 Updated \u2014 auto-restarting in progress, refresh shortly",
+  "updatedRestartDetail": "\u2705 Updated \u2014 restart dsh web to apply",
+  "updateFailed": "\u274C Failed: {err} (manual update: dsh plugin --profile web update dsh-pocket --latest -w)",
+  "versionRange": "Current v{cur} \u2192 latest v{latest}",
+  "lanTitle": "\u{1F4F6} LAN (same Wi-Fi)",
+  "lanHint": "Scan to open once your phone is on the same Wi-Fi",
+  "lanPin": "LAN access PIN",
+  "on": "On",
+  "off": "Off",
+  "lanPinValue": "\u{1F510} PIN: {pin} (required on the phone; separate from the public PIN)",
+  "refresh": "Refresh",
+  "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
+  "lanStarting": "Proxy starting\u2026",
+  "wanTitle": "\u{1F310} Anywhere (public)",
+  "wanHint": "Scan from any network (the URL changes on every restart)",
+  "wanPin": "\u{1F510} PIN: {pin} (changes each time the tunnel is enabled; required on the phone)",
+  "stopTunnel": "Stop",
+  "enable": "Enable anywhere",
+  "opening": "Enabling\u2026",
+  "downloading": "\u23F3 Downloading cloudflared (first run ~20-50MB, usually 1-2 min; instant afterward) \xB7 {s}s elapsed",
+  "connecting": "\u23F3 Connecting to Cloudflare edge (usually 5-30s) \xB7 {s}s elapsed{suffix}",
+  "slowHint": " \u2014 taking long? Check for a proxy/VPN (e.g., Clash TUN)",
+  "error": "\u274C Failed to enable: {detail} (you can retry; for proxy/VPN issues see the README)",
+  "unknownError": "unknown error",
+  "feedback": "\u{1F64F} Questions? Open an issue on GitHub"
+};
+
 // client/index.jsx
 var name = "dsh-pocket";
 var inject = ["slots", "connection", "layout", "locale", "sessionLogDownload"];
+function fmt(t, key, vars) {
+  let s = t(key);
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = String(s).split(`{${k}}`).join(String(v));
+    }
+  }
+  return s;
+}
 var styles = {
   card: { background: "var(--dsw-alias-bg-layer-1,#fff)", border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 12, padding: "16px 20px", maxWidth: 480 },
   block: { borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 16, paddingTop: 16 },
@@ -1305,7 +1411,7 @@ var styles = {
   qr: { width: 220, height: 220, borderRadius: 10, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", margin: "8px 0" },
   warn: { color: "var(--dsw-alias-state-warn-primary,#b45309)", fontSize: 12, lineHeight: 1.5 }
 };
-function PocketSettingsTab({ rpcCall }) {
+function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = (0, import_react2.useState)(null);
   const [busy, setBusy] = (0, import_react2.useState)(false);
   const [error, setError] = (0, import_react2.useState)(null);
@@ -1315,8 +1421,8 @@ function PocketSettingsTab({ rpcCall }) {
   const [isDesktop, setIsDesktop] = (0, import_react2.useState)(false);
   const [now, setNow] = (0, import_react2.useState)(Date.now());
   (0, import_react2.useEffect)(() => {
-    const t = setInterval(() => setNow(Date.now()), 1e3);
-    return () => clearInterval(t);
+    const t2 = setInterval(() => setNow(Date.now()), 1e3);
+    return () => clearInterval(t2);
   }, []);
   const elapsed = (startedAt) => startedAt ? Math.max(0, Math.floor((Date.now() - startedAt) / 1e3)) : 0;
   const call = async (endpoint, payload) => {
@@ -1348,8 +1454,8 @@ function PocketSettingsTab({ rpcCall }) {
   };
   (0, import_react2.useEffect)(() => {
     load();
-    const t = setInterval(load, 3e3);
-    return () => clearInterval(t);
+    const t2 = setInterval(load, 3e3);
+    return () => clearInterval(t2);
   }, []);
   (0, import_react2.useEffect)(() => {
     try {
@@ -1375,10 +1481,10 @@ function PocketSettingsTab({ rpcCall }) {
       }
     };
     check();
-    const t = setInterval(check, 5 * 60 * 1e3);
+    const t2 = setInterval(check, 5 * 60 * 1e3);
     return () => {
       alive = false;
-      clearInterval(t);
+      clearInterval(t2);
     };
   }, [isDesktop]);
   const restartPocket = async () => {
@@ -1460,18 +1566,18 @@ function PocketSettingsTab({ rpcCall }) {
       (0, import_react2.createElement)(
         "div",
         null,
-        (0, import_react2.createElement)("strong", null, "\u{1F4F1} \u624B\u673A\u8BBF\u95EE | Phone access"),
-        (0, import_react2.createElement)("div", { style: styles.muted }, "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65 | the phone shows this exact screen, live")
+        (0, import_react2.createElement)("strong", null, t("title")),
+        (0, import_react2.createElement)("div", { style: styles.muted }, t("subtitle"))
       ),
       (0, import_react2.createElement)(
         "div",
         { style: { fontSize: 12, color: "var(--dsw-alias-label-tertiary,#8b93a1)", textAlign: "right" } },
-        (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, "\u5F00\u53D1\u8005\uFF1A\u7A0B\u5E8F\u5458\u5C11\u5317\u6668"),
-        (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, "\u2B50 \u987A\u624B\u7559\u9897 Star\uFF0C\u4F5C\u8005\u80FD\u9AD8\u5174\u4E00\u6574\u5929"),
+        (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, t("developer")),
+        (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, t("starAsk")),
         (0, import_react2.createElement)(
           "a",
           { href: "https://github.com/shaobeichen/dsh-pocket", target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", fontSize: 12, lineHeight: 1.6, textDecoration: "underline" } },
-          "\u884C\uFF0C\u7ED9\u4F60\u4E00\u9897 Star"
+          t("starCta")
         )
       )
     ),
@@ -1483,10 +1589,10 @@ function PocketSettingsTab({ rpcCall }) {
       (0, import_react2.createElement)(
         "div",
         { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
-        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, "\u{1F504} \u5DF2\u91CD\u542F | Restarted"),
-        (0, import_react2.createElement)("button", { style: styles.btn, onClick: () => setRestartNotice(false) }, "\u77E5\u9053\u4E86 | OK")
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("restarted")),
+        (0, import_react2.createElement)("button", { style: styles.btn, onClick: () => setRestartNotice(false) }, t("ok"))
       ),
-      (0, import_react2.createElement)("div", { style: styles.muted, marginTop: 4, wordBreak: "break-all" }, `\u8FDB\u7A0B\u5728\u540E\u53F0\u8FD0\u884C\uFF08\u4E0D\u6302\u7EC8\u7AEF\uFF09\u3002\u5982\u9700\u505C\u6B62\uFF1A${status?.killHint ?? `lsof -ti :${status?.dshPort ?? 3080} | xargs kill -9`}`)
+      (0, import_react2.createElement)("div", { style: styles.muted, marginTop: 4, wordBreak: "break-all" }, fmt(t, "bgHint", { cmd: status?.killHint ?? `lsof -ti :${status?.dshPort ?? 3080} | xargs kill -9` }))
     ) : null,
     // 更新提示——左侧黄色色条（提示有新版本）；单状态：有更新/更新中/已更新自动重启，不并存
     // 桌面端不渲染（更新由 DSH Desktop 管理）
@@ -1499,84 +1605,82 @@ function PocketSettingsTab({ rpcCall }) {
         (0, import_react2.createElement)(
           "div",
           { style: { fontWeight: 600, fontSize: 13 } },
-          updateInfo.updated ? `\u2705 \u5DF2\u66F4\u65B0 v${updateInfo.current}\uFF0C\u91CD\u542F\u751F\u6548 | Updated \u2014 restart to apply` : updateInfo.result === "ok" ? updateInfo.autoRestart ? `\u2705 \u5DF2\u66F4\u65B0 v${updateInfo.latest}\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u542F\u2026 | updated \u2014 restarting\u2026` : `\u2705 \u5DF2\u66F4\u65B0 v${updateInfo.latest} | Updated` : `\u{1F4E6} \u65B0\u7248\u672C v${updateInfo.latest} | Update available`
+          updateInfo.updated ? fmt(t, "updatedRestart", { ver: updateInfo.current }) : updateInfo.result === "ok" ? updateInfo.autoRestart ? fmt(t, "updateAutoRestarting", { ver: updateInfo.latest }) : fmt(t, "updatedOk", { ver: updateInfo.latest }) : fmt(t, "updateAvailable", { ver: updateInfo.latest })
         ),
-        updateInfo.result !== "ok" ? (0, import_react2.createElement)("button", { style: styles.primary, onClick: runUpdate, disabled: updateInfo.updating }, updateInfo.updating ? "\u66F4\u65B0\u4E2D\u2026" : `\u66F4\u65B0\u5230 v${updateInfo.latest} | Update`) : updateInfo.autoRestart ? (0, import_react2.createElement)("button", { style: styles.btn, disabled: true }, "\u6B63\u5728\u91CD\u542F\u751F\u6548\u2026 | restarting\u2026") : (0, import_react2.createElement)("button", { style: styles.primary, onClick: restartPocket, disabled: updateInfo.restarting }, updateInfo.restarting ? "\u91CD\u542F\u4E2D\u2026" : "\u{1F504} \u91CD\u542F dsh web \u751F\u6548 | Restart now")
+        updateInfo.result !== "ok" ? (0, import_react2.createElement)("button", { style: styles.primary, onClick: runUpdate, disabled: updateInfo.updating }, updateInfo.updating ? t("updating") : fmt(t, "updateTo", { ver: updateInfo.latest })) : updateInfo.autoRestart ? (0, import_react2.createElement)("button", { style: styles.btn, disabled: true }, t("restartingNow")) : (0, import_react2.createElement)("button", { style: styles.primary, onClick: restartPocket, disabled: updateInfo.restarting }, updateInfo.restarting ? t("restarting") : t("restartNow"))
       ),
       (0, import_react2.createElement)(
         "div",
         { style: styles.muted, marginTop: 4 },
-        updateInfo.updating ? `\u23F3 \u66F4\u65B0\u4E2D\uFF08\u901A\u5E38 1-2 \u5206\u949F\uFF09\xB7 \u5DF2\u7B49\u5F85 ${elapsed(updateInfo.startedAt)} \u79D2 | updating (usually 1-2 min) \xB7 ${elapsed(updateInfo.startedAt)}s` : updateInfo.restarting ? `\u23F3 \u6B63\u5728\u91CD\u542F\u751F\u6548\uFF08\u901A\u5E38 10-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 ${elapsed(updateInfo.startedAt)} \u79D2 | restarting (usually 10-30s) \xB7 ${elapsed(updateInfo.startedAt)}s` : updateInfo.result === "ok" ? updateInfo.autoRestart ? "\u2705 \u5DF2\u66F4\u65B0\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u542F\u751F\u6548\uFF0C\u8BF7\u7A0D\u5019\u5237\u65B0 | updated \u2014 restarting automatically, refresh shortly" : "\u2705 \u5DF2\u66F4\u65B0\uFF0C\u91CD\u542F dsh web \u751F\u6548 | updated \u2014 restart dsh web" : updateInfo.result === "fail" ? `\u274C \u5931\u8D25\uFF1A${updateInfo.output || "\u672A\u77E5"}\uFF08\u624B\u52A8\u66F4\u65B0\uFF1Adsh plugin --profile web update dsh-pocket --latest -w\uFF09` : `\u5F53\u524D v${updateInfo.current} \u2192 \u6700\u65B0 v${updateInfo.latest}`
+        updateInfo.updating ? fmt(t, "updatingDetail", { s: elapsed(updateInfo.startedAt) }) : updateInfo.restarting ? fmt(t, "restartingDetail", { s: elapsed(updateInfo.startedAt) }) : updateInfo.result === "ok" ? updateInfo.autoRestart ? t("updatedAutoDetail") : t("updatedRestartDetail") : updateInfo.result === "fail" ? fmt(t, "updateFailed", { err: updateInfo.output || t("unknownError") }) : fmt(t, "versionRange", { cur: updateInfo.current, latest: updateInfo.latest })
       )
     ) : null,
     // 局域网
     (0, import_react2.createElement)(
       "div",
       { style: styles.block },
-      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, "\u{1F4F6} \u5C40\u57DF\u7F51\uFF08\u540C\u4E00 WiFi\uFF09| LAN"),
+      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("lanTitle")),
       lanUrl ? (0, import_react2.createElement)(
         "div",
         null,
         (0, import_react2.createElement)("img", { src: status.lanQr, alt: "LAN QR", style: styles.qr }),
         (0, import_react2.createElement)("div", { style: styles.code }, lanUrl),
-        (0, import_react2.createElement)("div", { style: styles.muted }, "\u624B\u673A\u8FDE\u63A5\u540C\u4E00 WiFi \u540E\u626B\u7801\u5373\u53EF\u6253\u5F00"),
+        (0, import_react2.createElement)("div", { style: styles.muted }, t("lanHint")),
         // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
         (0, import_react2.createElement)(
           "div",
           { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
-          (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5BC6\u7801 | LAN access PIN"),
+          (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanPin")),
           (0, import_react2.createElement)("button", {
             style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
             onClick: () => setLanAuth(true)
-          }, "\u5F00 | On"),
+          }, t("on")),
           (0, import_react2.createElement)("button", {
             style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
             onClick: () => setLanAuth(false)
-          }, "\u5173 | Off")
+          }, t("off"))
         ),
         status?.lanAuthEnabled !== false ? (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A",
-          status.lanToken,
-          "\uFF08\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF1B\u4E0E\u516C\u7F51\u5BC6\u7801\u5206\u5F00\uFF09",
-          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, "\u5237\u65B0 | Refresh")
+          fmt(t, "lanPinValue", { pin: status.lanToken }),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t("refresh"))
         ) : (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
-          "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09| PIN off \u2014 scan & go (LAN only; public still requires PIN)"
+          t("lanPinOff")
         )
-      ) : (0, import_react2.createElement)("div", { style: styles.muted }, "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026 | proxy starting\u2026")
+      ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
     ),
     // 公网
     (0, import_react2.createElement)(
       "div",
       { style: styles.block },
-      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, "\u{1F310} \u516C\u7F51\uFF08\u4EBA\u5728\u5916\u9762\uFF09| Anywhere"),
+      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("wanTitle")),
       tunnelUrl ? (0, import_react2.createElement)(
         "div",
         null,
         (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
         (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
-        (0, import_react2.createElement)("div", { style: styles.muted }, "\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528\uFF08URL \u6BCF\u6B21\u91CD\u542F\u81EA\u52A8\u6362\u65B0\uFF09"),
+        (0, import_react2.createElement)("div", { style: styles.muted }, t("wanHint")),
         status.accessToken ? (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          `\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A${status.accessToken}\uFF08\u6BCF\u6B21\u5F00\u542F\u516C\u7F51\u53D8\u65B0\uFF1B\u624B\u673A\u6253\u5F00\u94FE\u63A5\u9700\u8F93\u5165\u6B64\u5BC6\u7801\uFF09| PIN: ${status.accessToken} \u2014 required on the phone`
+          fmt(t, "wanPin", { pin: status.accessToken })
         ) : null,
-        (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, "\u5173\u95ED\u516C\u7F51 | Stop")
+        (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
       ) : (0, import_react2.createElement)(
         "div",
         null,
-        (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy ? "\u5F00\u542F\u4E2D\u2026" : "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE | Enable anywhere"),
+        (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy ? t("opening") : t("enable")),
         tunnelStarting ? (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 4, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
-          tunnelPhase === "downloading" ? `\u23F3 \u4E0B\u8F7D cloudflared\uFF08\u9996\u6B21\u7EA6 20-50MB\uFF0C\u901A\u5E38 1-2 \u5206\u949F\uFF1B\u4E4B\u540E\u79D2\u5F00\uFF09\xB7 \u5DF2\u7B49\u5F85 ${elapsed(tunnelStateStarted)} \u79D2` : `\u23F3 \u8FDE\u63A5 Cloudflare \u8FB9\u7F18\uFF08\u901A\u5E38 5-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 ${elapsed(tunnelStateStarted)} \u79D2${elapsed(tunnelStateStarted) > 30 ? " \u2014 \u6709\u70B9\u4E45\uFF1F\u68C0\u67E5\u662F\u5426\u5F00\u7740\u4EE3\u7406/VPN\uFF08Clash TUN \u7B49\uFF09" : ""}`
+          tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
         ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 4, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
-          `\u274C \u5F00\u542F\u5931\u8D25\uFF1A${tunnelStateDetail || "\u672A\u77E5\u9519\u8BEF | failed"}\uFF08\u53EF\u91CD\u8BD5\uFF1B\u82E5\u662F\u4EE3\u7406/VPN \u95EE\u9898\u89C1 README \u6392\u969C\uFF09`
+          fmt(t, "error", { detail: tunnelStateDetail || t("unknownError") })
         ) : null
       )
     ),
@@ -1588,7 +1692,7 @@ function PocketSettingsTab({ rpcCall }) {
       (0, import_react2.createElement)(
         "a",
         { href: "https://github.com/shaobeichen/dsh-pocket/issues", target: "_blank", rel: "noreferrer", style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", textDecoration: "none" } },
-        "\u6709\u95EE\u9898\uFF1F\u6B22\u8FCE\u5230 GitHub Issues \u53CD\u9988 \u{1F64F} | Questions? Open an issue on GitHub"
+        t("feedback")
       )
     )
   );
@@ -1596,6 +1700,8 @@ function PocketSettingsTab({ rpcCall }) {
 function apply(ctx) {
   mobileApply(ctx);
   const rpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
+  const translate = ctx.locale.bind(NS2);
+  ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2 }), "dsh-pocket: pocket locale dictionaries");
   ctx.slots.inject(
     "settings.section",
     () => ctx.slots.register(
@@ -1603,8 +1709,8 @@ function apply(ctx) {
         name: "settings.section",
         id: "pocket",
         order: 1,
-        label: () => "\u624B\u673A\u8BBF\u95EE",
-        inject: () => ({ rpcCall })
+        label: () => translate("section"),
+        inject: () => ({ rpcCall, t: translate })
       },
       PocketSettingsTab
     )

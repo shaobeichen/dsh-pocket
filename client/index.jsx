@@ -11,9 +11,22 @@ import { createElement as h, useEffect, useState } from 'react';
 
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, redactStatus, compareVersions } from './api.js';
 import { mobileApply } from './mobile/mobile-apply.tsx';
+import { NS as POCKET_NS, zh as POCKET_ZH, en as POCKET_EN } from './pocket-locales.js';
 
 const name = 'dsh-pocket';
 const inject = ['slots', 'connection', 'layout', 'locale', 'sessionLogDownload'];
+
+// 词典在 pocket-locales.js；这里只做「取 key → 替换 {占位符} → 字符串」。
+// 不依赖 DSH t() 的插值能力，避免行为不一致。
+function fmt(t, key, vars) {
+  let s = t(key);
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = String(s).split(`{${k}}`).join(String(v));
+    }
+  }
+  return s;
+}
 
 // 官方 DeepSeek Harness 设计系统（dsh-client-ui-theme design-platform.css）：
 // 按钮 md=36px 胶囊形 / sm=28px；品牌色 --dsw-alias-brand-primary；
@@ -31,7 +44,7 @@ const styles = {
   warn: { color: 'var(--dsw-alias-state-warn-primary,#b45309)', fontSize: 12, lineHeight: 1.5 },
 };
 
-function PocketSettingsTab({ rpcCall }) {
+function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -193,14 +206,14 @@ function PocketSettingsTab({ rpcCall }) {
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
       h('div', null,
-        h('strong', null, '📱 手机访问 | Phone access'),
-        h('div', { style: styles.muted }, '手机扫码打开的就是电脑上的这个界面，实时同步 | the phone shows this exact screen, live'),
+        h('strong', null, t('title')),
+        h('div', { style: styles.muted }, t('subtitle')),
       ),
       h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary,#8b93a1)', textAlign: 'right' } },
-        h('div', { style: { whiteSpace: 'nowrap' } }, '开发者：程序员少北晨'),
-        h('div', { style: { whiteSpace: 'nowrap' } }, '⭐ 顺手留颗 Star，作者能高兴一整天'),
+        h('div', { style: { whiteSpace: 'nowrap' } }, t('developer')),
+        h('div', { style: { whiteSpace: 'nowrap' } }, t('starAsk')),
         h('a', { href: 'https://github.com/shaobeichen/dsh-pocket', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', fontSize: 12, lineHeight: 1.6, textDecoration: 'underline' } },
-          '行，给你一颗 Star'),
+          t('starCta')),
       ),
     ),
 
@@ -209,10 +222,10 @@ function PocketSettingsTab({ rpcCall }) {
     // 重启后提示（进程在后台运行，停止方法）——左侧蓝色色条（桌面端不会触发本插件的自重启）
     !isDesktop && restartNotice ? h('div', { style: { ...styles.block, borderLeft: '4px solid var(--dsw-alias-brand-primary,#4f6ef7)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-2,#f3f4f6)', padding: '10px 12px' } },
       h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-        h('div', { style: { fontWeight: 600, fontSize: 13 } }, '🔄 已重启 | Restarted'),
-        h('button', { style: styles.btn, onClick: () => setRestartNotice(false) }, '知道了 | OK'),
+        h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('restarted')),
+        h('button', { style: styles.btn, onClick: () => setRestartNotice(false) }, t('ok')),
       ),
-      h('div', { style: styles.muted, marginTop: 4, wordBreak: 'break-all' }, `进程在后台运行（不挂终端）。如需停止：${status?.killHint ?? `lsof -ti :${status?.dshPort ?? 3080} | xargs kill -9`}`),
+      h('div', { style: styles.muted, marginTop: 4, wordBreak: 'break-all' }, fmt(t, 'bgHint', { cmd: status?.killHint ?? `lsof -ti :${status?.dshPort ?? 3080} | xargs kill -9` })),
     ) : null,
 
     // 更新提示——左侧黄色色条（提示有新版本）；单状态：有更新/更新中/已更新自动重启，不并存
@@ -221,85 +234,83 @@ function PocketSettingsTab({ rpcCall }) {
       h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
         h('div', { style: { fontWeight: 600, fontSize: 13 } },
           updateInfo.updated
-            ? `✅ 已更新 v${updateInfo.current}，重启生效 | Updated — restart to apply`
+            ? fmt(t, 'updatedRestart', { ver: updateInfo.current })
             : updateInfo.result === 'ok'
-              ? (updateInfo.autoRestart ? `✅ 已更新 v${updateInfo.latest}，正在自动重启… | updated — restarting…` : `✅ 已更新 v${updateInfo.latest} | Updated`)
-              : `📦 新版本 v${updateInfo.latest} | Update available`),
+              ? (updateInfo.autoRestart ? fmt(t, 'updateAutoRestarting', { ver: updateInfo.latest }) : fmt(t, 'updatedOk', { ver: updateInfo.latest }))
+              : fmt(t, 'updateAvailable', { ver: updateInfo.latest })),
         updateInfo.result !== 'ok'
-          ? h('button', { style: styles.primary, onClick: runUpdate, disabled: updateInfo.updating }, updateInfo.updating ? '更新中…' : `更新到 v${updateInfo.latest} | Update`)
+          ? h('button', { style: styles.primary, onClick: runUpdate, disabled: updateInfo.updating }, updateInfo.updating ? t('updating') : fmt(t, 'updateTo', { ver: updateInfo.latest }))
           : updateInfo.autoRestart
-            ? h('button', { style: styles.btn, disabled: true }, '正在重启生效… | restarting…')
-            : h('button', { style: styles.primary, onClick: restartPocket, disabled: updateInfo.restarting }, updateInfo.restarting ? '重启中…' : '🔄 重启 dsh web 生效 | Restart now'),
+            ? h('button', { style: styles.btn, disabled: true }, t('restartingNow'))
+            : h('button', { style: styles.primary, onClick: restartPocket, disabled: updateInfo.restarting }, updateInfo.restarting ? t('restarting') : t('restartNow')),
       ),
       h('div', { style: styles.muted, marginTop: 4 },
         updateInfo.updating
-          ? `⏳ 更新中（通常 1-2 分钟）· 已等待 ${elapsed(updateInfo.startedAt)} 秒 | updating (usually 1-2 min) · ${elapsed(updateInfo.startedAt)}s`
+          ? fmt(t, 'updatingDetail', { s: elapsed(updateInfo.startedAt) })
         : updateInfo.restarting
-          ? `⏳ 正在重启生效（通常 10-30 秒）· 已等待 ${elapsed(updateInfo.startedAt)} 秒 | restarting (usually 10-30s) · ${elapsed(updateInfo.startedAt)}s`
+          ? fmt(t, 'restartingDetail', { s: elapsed(updateInfo.startedAt) })
         : updateInfo.result === 'ok'
-          ? (updateInfo.autoRestart ? '✅ 已更新，正在自动重启生效，请稍候刷新 | updated — restarting automatically, refresh shortly'
-            : '✅ 已更新，重启 dsh web 生效 | updated — restart dsh web')
-        : updateInfo.result === 'fail' ? `❌ 失败：${updateInfo.output || '未知'}（手动更新：dsh plugin --profile web update dsh-pocket --latest -w）`
-        : `当前 v${updateInfo.current} → 最新 v${updateInfo.latest}`),
+          ? (updateInfo.autoRestart ? t('updatedAutoDetail')
+            : t('updatedRestartDetail'))
+        : updateInfo.result === 'fail' ? fmt(t, 'updateFailed', { err: updateInfo.output || t('unknownError') })
+        : fmt(t, 'versionRange', { cur: updateInfo.current, latest: updateInfo.latest })),
     ) : null,
 
     // 局域网
     h('div', { style: styles.block },
-      h('div', { style: { fontWeight: 600, fontSize: 13 } }, '📶 局域网（同一 WiFi）| LAN'),
+      h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('lanTitle')),
       lanUrl
         ? h('div', null,
           h('img', { src: status.lanQr, alt: 'LAN QR', style: styles.qr }),
           h('div', { style: styles.code }, lanUrl),
-          h('div', { style: styles.muted }, '手机连接同一 WiFi 后扫码即可打开'),
+          h('div', { style: styles.muted }, t('lanHint')),
           // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
-            h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, '局域网访问密码 | LAN access PIN'),
+            h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanPin')),
             h('button', {
               style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanAuthEnabled !== false ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
               onClick: () => setLanAuth(true),
-            }, '开 | On'),
+            }, t('on')),
             h('button', {
               style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? 'var(--dsw-alias-state-error-primary,#dc2626)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanAuthEnabled === false ? '#fff' : 'var(--dsw-alias-label-primary,inherit)' },
               onClick: () => setLanAuth(false),
-            }, '关 | Off'),
+            }, t('off')),
           ),
           status?.lanAuthEnabled !== false
             ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
-              '🔐 访问密码：',
-              status.lanToken,
-              '（手机打开需输入；与公网密码分开）',
-              h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, '刷新 | Refresh'),
+              fmt(t, 'lanPinValue', { pin: status.lanToken }),
+              h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t('refresh')),
             )
             : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
-              '🔓 密码已关闭：扫码直连，无需密码（仅同一局域网设备可访问；公网仍要密码）| PIN off — scan & go (LAN only; public still requires PIN)'),
+              t('lanPinOff')),
         )
-        : h('div', { style: styles.muted }, '代理未就绪… | proxy starting…'),
+        : h('div', { style: styles.muted }, t('lanStarting')),
     ),
 
     // 公网
     h('div', { style: styles.block },
-      h('div', { style: { fontWeight: 600, fontSize: 13 } }, '🌐 公网（人在外面）| Anywhere'),
+      h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('wanTitle')),
       tunnelUrl
         ? h('div', null,
           h('img', { src: status.tunnelQr, alt: 'Tunnel QR', style: styles.qr }),
           h('div', { style: styles.code }, tunnelUrl),
-          h('div', { style: styles.muted }, '任何网络扫码即用（URL 每次重启自动换新）'),
+          h('div', { style: styles.muted }, t('wanHint')),
           status.accessToken
             ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
-              `🔐 访问密码：${status.accessToken}（每次开启公网变新；手机打开链接需输入此密码）| PIN: ${status.accessToken} — required on the phone`)
+              fmt(t, 'wanPin', { pin: status.accessToken }))
             : null,
-          h('button', { style: styles.btn, onClick: stopTunnel }, '关闭公网 | Stop'),
+          h('button', { style: styles.btn, onClick: stopTunnel }, t('stopTunnel')),
         )
         : h('div', null,
-          h('button', { style: { ...styles.primary, margin: '8px 0' }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy ? '开启中…' : '开启公网访问 | Enable anywhere'),
+          h('button', { style: { ...styles.primary, margin: '8px 0' }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy ? t('opening') : t('enable')),
           tunnelStarting
             ? h('div', { style: { marginTop: 4, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } },
               tunnelPhase === 'downloading'
-                ? `⏳ 下载 cloudflared（首次约 20-50MB，通常 1-2 分钟；之后秒开）· 已等待 ${elapsed(tunnelStateStarted)} 秒`
-                : `⏳ 连接 Cloudflare 边缘（通常 5-30 秒）· 已等待 ${elapsed(tunnelStateStarted)} 秒${elapsed(tunnelStateStarted) > 30 ? ' — 有点久？检查是否开着代理/VPN（Clash TUN 等）' : ''}`)
+                ? fmt(t, 'downloading', { s: elapsed(tunnelStateStarted) })
+                : fmt(t, 'connecting', { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t('slowHint') : '' }))
             : tunnelPhase === 'error'
               ? h('div', { style: { marginTop: 4, fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } },
-                `❌ 开启失败：${tunnelStateDetail || '未知错误 | failed'}（可重试；若是代理/VPN 问题见 README 排障）`)
+                fmt(t, 'error', { detail: tunnelStateDetail || t('unknownError') }))
               : null,
         ),
     ),
@@ -309,7 +320,7 @@ function PocketSettingsTab({ rpcCall }) {
     // 页面最底部：反馈入口
     h('div', { style: { ...styles.block, textAlign: 'center' } },
       h('a', { href: 'https://github.com/shaobeichen/dsh-pocket/issues', target: '_blank', rel: 'noreferrer', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', textDecoration: 'none' } },
-        '有问题？欢迎到 GitHub Issues 反馈 🙏 | Questions? Open an issue on GitHub'),
+        t('feedback')),
     ),
   );
 }
@@ -321,6 +332,10 @@ export function apply(ctx) {
   const rpcCall = (endpoint, payload, signal) =>
     ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
 
+  // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en），并绑定一个随当前 locale 切换的 t()。
+  const translate = ctx.locale.bind(POCKET_NS);
+  ctx.effect(() => ctx.locale.register(POCKET_NS, { zh: POCKET_ZH, en: POCKET_EN }), 'dsh-pocket: pocket locale dictionaries');
+
   // 设置一级入口（与 通用设置/模型/插件 同级，order 1 = 通用之后、最外层）
   ctx.slots.inject('settings.section', () =>
     ctx.slots.register(
@@ -328,8 +343,8 @@ export function apply(ctx) {
         name: 'settings.section',
         id: 'pocket',
         order: 1,
-        label: () => '手机访问',
-        inject: () => ({ rpcCall }),
+        label: () => translate('section'),
+        inject: () => ({ rpcCall, t: translate }),
       },
       PocketSettingsTab,
     ),
