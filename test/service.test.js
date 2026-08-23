@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { createPocketService, selectLanIPv4 } from '../lib/service.mjs';
 import { installPocketRpc } from '../lib/web-rpc.js';
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS } from '../client/api.js';
+import { isValidIpv4 } from '../lib/ip.mjs';
 
 function fakeCtxConnection() {
   let handler = null;
@@ -24,6 +25,7 @@ function stubInternals() {
   return {
     started,
     lanIPv4: () => '192.168.1.50',
+    lanCandidates: async () => ['192.168.1.50', '100.119.24.44'],
     encodeQr: async (text) => `data:qr;${text}`,
     createProxy: async ({ port }) => ({
       port,
@@ -77,6 +79,30 @@ test('selectLanIPv4：没有私网地址时回退到非回环地址（纯 VPN �
 
 test('selectLanIPv4：空接口表返回 null', () => {
   assert.equal(selectLanIPv4({}), null);
+});
+
+test('service：lanIpOverride 优先于自动选择，status 返回候选地址', async () => {
+  const internals = stubInternals();
+  let override = '';
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals, getLanIpOverride: () => override });
+  await service.startProxy();
+
+  let st = await service.status();
+  assert.equal(st.lanUrl, 'http://192.168.1.50:3081', '默认自动选择');
+  assert.deepEqual(st.lanCandidates, ['192.168.1.50', '100.119.24.44'], '候选包含 Tailscale IP');
+  assert.equal(st.lanIpOverride, '', '未设置覆盖');
+
+  override = '100.119.24.44';
+  st = await service.status();
+  assert.equal(st.lanUrl, 'http://100.119.24.44:3081', '手动覆盖优先');
+  assert.equal(st.lanIpOverride, '100.119.24.44', '状态返回当前覆盖');
+
+  override = 'not-an-ip';
+  st = await service.status();
+  assert.equal(st.lanUrl, 'http://192.168.1.50:3081', '非法覆盖被忽略，回退自动选择');
+  assert.equal(st.lanIpOverride, '', '非法覆盖不进入状态');
+
+  await service.dispose();
 });
 
 
@@ -141,6 +167,42 @@ test('RPC：status / tunnel.start / tunnel.stop / 未知端点', async () => {
   const unknown = await conn.handler('nope', {});
   assert.equal(unknown.ok, false);
   assert.equal(unknown.error.code, 'bad-request');
+
+  await service.dispose();
+});
+
+test('RPC：lan.setOverride 设置/清除覆盖地址，非法 IP 被拒绝', async () => {
+  const internals = stubInternals();
+  let stored = '';
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals, getLanIpOverride: () => stored });
+  const conn = fakeCtxConnection();
+  installPocketRpc({ connection: conn }, {
+    service,
+    getLanIpOverride: () => stored,
+    setLanIpOverride: (ip) => {
+      if (ip && !isValidIpv4(ip)) throw new Error('局域网地址必须是 IPv4 地址 | LAN address must be an IPv4 address');
+      stored = ip;
+      return ip;
+    },
+    log: { error() {}, warn() {} },
+  });
+  await service.startProxy();
+
+  const set = await conn.handler(POCKET_ENDPOINTS.lanSetOverride, { ip: '100.119.24.44' });
+  assert.equal(set.ok, true);
+  assert.equal(set.value.lanIpOverride, '100.119.24.44', '覆盖地址已保存');
+  const st = await conn.handler(POCKET_ENDPOINTS.status, {});
+  assert.equal(st.value.lanUrl, 'http://100.119.24.44:3081', '二维码使用覆盖地址');
+
+  const bad = await conn.handler(POCKET_ENDPOINTS.lanSetOverride, { ip: '999.1.1.1' });
+  assert.equal(bad.ok, false, '非法地址拒绝');
+  assert.equal(bad.error.code, 'bad-request');
+
+  const clear = await conn.handler(POCKET_ENDPOINTS.lanSetOverride, { ip: '' });
+  assert.equal(clear.ok, true);
+  assert.equal(clear.value.lanIpOverride, '', '清除覆盖');
+  const restored = await conn.handler(POCKET_ENDPOINTS.status, {});
+  assert.equal(restored.value.lanUrl, 'http://192.168.1.50:3081', '恢复自动选择');
 
   await service.dispose();
 });
@@ -631,6 +693,22 @@ Ethernet adapter Wi-Fi:
 \n\n   IPv4 Address. . . . . . . . . . . : 192.168.31.8
 `;
   assert.deepEqual(parseIpconfig(vpnFirst), ['192.168.31.8'], '虚拟网卡在前也正确跳过');
+
+  // 手动覆盖候选：保留 Tailscale/VPN 地址供设置页选择
+  const tailscaleFirst = `Unknown adapter Tailscale:
+
+   IPv4 Address. . . . . . . . . . . : 100.119.24.44
+
+Ethernet adapter WLAN:
+
+   IPv4 Address. . . . . . . . . . . : 10.179.45.172
+`;
+  assert.deepEqual(parseIpconfig(tailscaleFirst), ['10.179.45.172'], '自动模式仍排除 Tailscale');
+  assert.deepEqual(
+    parseIpconfig(tailscaleFirst, { includeVpn: true }),
+    ['100.119.24.44', '10.179.45.172'],
+    '候选模式保留 Tailscale/VPN 地址',
+  );
 
   // detectWsl：环境变量触发（本机 macOS 无 /proc/version，走 env 分支）
   const prev = process.env.WSL_DISTRO_NAME;

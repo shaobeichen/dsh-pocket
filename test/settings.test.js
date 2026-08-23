@@ -43,6 +43,18 @@ test('再开 → true；settings.json 权限 0600', () => withHome(async () => {
   }
 }));
 
+test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv4 拒绝', () => withHome(async () => {
+  const { lanIpOverride, setLanIpOverride, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(lanIpOverride(), '', '默认自动');
+  assert.equal(setLanIpOverride('100.119.24.44'), '100.119.24.44', '设置成功');
+  assert.equal(lanIpOverride(), '100.119.24.44', '立即生效');
+  const raw = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+  assert.equal(raw.lanIpOverride, '100.119.24.44', 'settings.json 内容正确');
+  assert.throws(() => setLanIpOverride('999.1.1.1'), /IPv4/, '非法地址拒绝');
+  assert.equal(setLanIpOverride(''), '', '清除覆盖');
+  assert.equal(lanIpOverride(), '', '恢复自动');
+}));
+
 test('PIN 自定义标记（issue #33）：默认 false，设置/清除持久化，未知类型 false', () => withHome(async () => {
   const { pinCustom, setPinCustom } = await import('../lib/settings.mjs');
   assert.equal(pinCustom('public'), false, '默认未自定义');

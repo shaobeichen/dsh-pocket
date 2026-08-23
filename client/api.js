@@ -10,6 +10,7 @@ export const POCKET_ENDPOINTS = Object.freeze({
   restart: 'pocket.restart',
   lanTokenRefresh: 'token.lanRefresh',
   lanAuthSetEnabled: 'lanAuth.setEnabled',
+  lanSetOverride: 'lan.setOverride',
   pinSetCustom: 'pin.setCustom',
 });
 
@@ -54,6 +55,8 @@ export function redactStatus(s) {
     proxyPort: s?.proxyPort ?? null,
     lanUrl: s?.lanUrl ?? null,
     lanQr: s?.lanQr ?? null,
+    lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
+    lanIpOverride: s?.lanIpOverride ?? '',
     tunnelRunning: s?.tunnelRunning === true,
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,

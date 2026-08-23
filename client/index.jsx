@@ -211,6 +211,15 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch { /* 忽略 */ }
   };
 
+  // 局域网地址手动覆盖（Tailscale/VPN 等远程访问场景）：空值恢复自动选择
+  const setLanAddress = async (ip) => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.lanSetOverride, { ip }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // 自定义访问密码（issue #33）：公网/局域网各自设固定 8 位数字；自定义后公网不再自动轮换。
   // customPin: { which: 'public'|'lan', value, err } | null —— 正在输入自定义密码的区块
   const [customPin, setCustomPin] = useState(null);
@@ -317,6 +326,18 @@ function PocketSettingsTab({ rpcCall, t }) {
           h('img', { src: status.lanQr, alt: 'LAN QR', style: styles.qr }),
           h('div', { style: styles.code }, lanUrl),
           h('div', { style: styles.muted }, t('lanHint')),
+          h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } },
+            t('lanAddress'),
+            h('select', {
+              value: status?.lanIpOverride || '',
+              onChange: (e) => setLanAddress(e.target.value),
+              style: { font: 'inherit', height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)' },
+            },
+            h('option', { value: '' }, t('lanAddressAuto')),
+            (status?.lanCandidates || []).map((ip) => h('option', { key: ip, value: ip }, ip)),
+            ),
+          ),
+          h('div', { style: { ...styles.muted, marginTop: 2 } }, t('lanAddressHint')),
           // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
             h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanPin')),
