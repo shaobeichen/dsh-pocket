@@ -93,7 +93,27 @@ test('选择器常量与 MobileNavOverlay 的用法保持一致', () => {
   assert.ok(src.includes('isOverlayTap(target)'), '点抽屉外的处理必须先豁免浮层（issue #72）');
   assert.ok(
     src.includes("event.pointerType !== 'touch'"),
-    'iOS 触摸自愈路径必须限定在 touch/pen，桌面鼠标不能受影响',
+    '触摸导航路径必须限定在 touch/pen，桌面鼠标不能受影响',
+  );
+  assert.ok(
+    src.includes("attributeFilter: ['aria-selected']"),
+    '触摸会话行必须等 aria-selected 变化后再关闭抽屉',
+  );
+  assert.ok(
+    src.includes('pendingTouchRow !== null') && src.includes('&& isPendingTouchClick(event)'),
+    '只有与待完成触摸位置/能力匹配的 click 才能绕过立即关闭，不能误伤鼠标',
+  );
+  assert.ok(
+    src.includes('navClickArrived && selectedRow !== null && selectedRow !== selectedRowAtArm'),
+    '必须等真实 click 到达且选中行变化，不能依赖可能被卸载或同名的旧 row',
+  );
+  assert.ok(
+    src.includes("row.getAttribute('aria-selected') === 'true'"),
+    '点击已选中会话时没有选择变化，必须直接关闭抽屉',
+  );
+  assert.ok(
+    !src.includes("dispatchEvent(new MouseEvent('click'"),
+    '不能再向 pointerup 保存的旧 DOM target 延迟补发 click',
   );
   assert.ok(
     !/\[class\*="sessionRow"\],?\s*\[class\*="searchResultRow"\]/.test(src),

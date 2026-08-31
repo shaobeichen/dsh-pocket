@@ -239,42 +239,104 @@ function MobileNavOverlay({ toggleSidebar, t }) {
   }, [mobile, open, toggleSidebar]);
   (0, import_react.useEffect)(() => {
     if (!mobile || !open) return;
-    const onDrawerClick = (event) => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return;
-      const target = event.target;
-      if (target === null) return;
-      const drawer = document.querySelector(DRAWER_SELECTOR);
-      if (drawer === null || !drawer.contains(target)) return;
-      if (navTargetFor(target) !== null) toggleSidebar();
+    let lastTouchNavAt = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let suppressTouchClickUntil = 0;
+    let pendingTouchRow = null;
+    let selectedRowAtArm = null;
+    let navClickArrived = false;
+    let navObserver = null;
+    let navTimer = null;
+    const drawerRoot = () => document.querySelector(DRAWER_SELECTOR);
+    const disarmNav = () => {
+      navObserver?.disconnect();
+      navObserver = null;
+      if (navTimer !== null) window.clearTimeout(navTimer);
+      navTimer = null;
+      pendingTouchRow = null;
+      selectedRowAtArm = null;
+      navClickArrived = false;
     };
-    document.addEventListener("click", onDrawerClick, true);
-    return () => document.removeEventListener("click", onDrawerClick, true);
-  }, [mobile, open, toggleSidebar]);
-  (0, import_react.useEffect)(() => {
-    if (!mobile || !open) return;
-    let timer = null;
+    const armNav = (row) => {
+      disarmNav();
+      pendingTouchRow = row;
+      const drawer = drawerRoot();
+      selectedRowAtArm = drawer?.querySelector('[role="treeitem"][aria-selected="true"]') ?? null;
+      if (drawer === null) return;
+      navObserver = new MutationObserver(() => {
+        const frame = document.querySelector('[data-mobile-nav="frame"]');
+        if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) {
+          disarmNav();
+          return;
+        }
+        const selectedRow = drawerRoot()?.querySelector('[role="treeitem"][aria-selected="true"]') ?? null;
+        if (navClickArrived && selectedRow !== null && selectedRow !== selectedRowAtArm) {
+          disarmNav();
+          toggleSidebar();
+        }
+      });
+      navObserver.observe(drawer, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["aria-selected"]
+      });
+      navTimer = window.setTimeout(disarmNav, 2e3);
+    };
+    const navigationTarget = (target) => {
+      if (document.querySelector('[aria-modal="true"]') !== null) return null;
+      const frame = document.querySelector('[data-mobile-nav="frame"]');
+      if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) return null;
+      if (!(target instanceof Element)) return null;
+      const drawer = drawerRoot();
+      if (drawer === null || !drawer.contains(target)) return null;
+      return navTargetFor(target);
+    };
+    const isPendingTouchClick = (event) => {
+      const capabilities = event.sourceCapabilities;
+      if (capabilities?.firesTouchEvents === true) return true;
+      return Math.hypot(event.clientX - lastTouchX, event.clientY - lastTouchY) <= 24;
+    };
+    const onDrawerClick = (event) => {
+      if (performance.now() < suppressTouchClickUntil) return;
+      if (pendingTouchRow !== null && performance.now() - lastTouchNavAt < 500 && isPendingTouchClick(event)) {
+        const target = navigationTarget(event.target);
+        const row = target?.closest('[role="treeitem"]');
+        if (row !== null && row !== void 0) {
+          pendingTouchRow = row;
+          navClickArrived = true;
+          return;
+        }
+      }
+      if (navigationTarget(event.target) !== null) toggleSidebar();
+    };
     const onDrawerPointerUp = (event) => {
       if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const drawer = document.querySelector(DRAWER_SELECTOR);
-      if (drawer === null || !drawer.contains(target)) return;
-      if (navTargetFor(target) === null) return;
-      if (timer !== null) return;
-      timer = window.setTimeout(() => {
-        timer = null;
-        const frame = document.querySelector('[data-mobile-nav="frame"]');
-        if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) return;
-        const row = navTargetFor(target);
-        row?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-      }, 0);
+      const target = navigationTarget(event.target);
+      if (target === null) return;
+      const row = target.closest('[role="treeitem"]');
+      if (row !== null) {
+        if (row.getAttribute("aria-selected") === "true") {
+          suppressTouchClickUntil = performance.now() + 500;
+          toggleSidebar();
+        } else {
+          lastTouchNavAt = performance.now();
+          lastTouchX = event.clientX;
+          lastTouchY = event.clientY;
+          armNav(row);
+        }
+        return;
+      }
     };
+    document.addEventListener("click", onDrawerClick, true);
     document.addEventListener("pointerup", onDrawerPointerUp, true);
     return () => {
-      if (timer !== null) window.clearTimeout(timer);
+      disarmNav();
+      document.removeEventListener("click", onDrawerClick, true);
       document.removeEventListener("pointerup", onDrawerPointerUp, true);
     };
-  }, [mobile, open]);
+  }, [mobile, open, toggleSidebar]);
   (0, import_react.useEffect)(() => {
     if (!mobile || !open) return;
     const onOutsideClick = (event) => {
@@ -283,6 +345,8 @@ function MobileNavOverlay({ toggleSidebar, t }) {
       if (target === null) return;
       if (target.closest(TOGGLE_SELECTOR) !== null) return;
       if (isOverlayTap(target)) return;
+      const frame = document.querySelector('[data-mobile-nav="frame"]');
+      if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) return;
       const drawer = document.querySelector(DRAWER_SELECTOR);
       if (drawer !== null && drawer.contains(target)) return;
       toggleSidebar();

@@ -102,9 +102,9 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
 
   // Navigation inside the drawer closes it: tapping a session row or a
   // plugin takeover entry (task board / ssh) must hand the screen to the
-  // content it just opened. Capture phase — the drawer closes before the
-  // shell or a plugin processes the click, so takeover panels never render
-  // under the open drawer.
+  // content it just opened. Mouse clicks keep the direct close path. Touch
+  // session rows close only after aria-selected changes, so live session
+  // updates cannot strand a delayed click on a detached DOM target.
   //
   // Deliberately NOT closed by this rule:
   // - Settings / Session log: their dialogs render INSIDE the drawer DOM
@@ -115,67 +115,127 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
   // - Anything while a modal dialog is open: the dialog owns the screen.
   useEffect(() => {
     if (!mobile || !open) return
-    const onDrawerClick = (event: MouseEvent) => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return
-      const target = event.target as HTMLElement | null
-      if (target === null) return
-      const drawer = document.querySelector<HTMLElement>(DRAWER_SELECTOR)
-      if (drawer === null || !drawer.contains(target)) return
-      // A session row's own action buttons — the "Session actions" kebab
-      // (delete / rename), revealed on hover / long-press — open an edit
-      // menu. Tapping one must NOT count as tapping the row, or the drawer
-      // would close and take the just-opened menu with it.
-      if (navTargetFor(target) !== null) toggleSidebar()
-    }
-    document.addEventListener('click', onDrawerClick, true)
-    return () => document.removeEventListener('click', onDrawerClick, true)
-  }, [mobile, open, toggleSidebar])
+    let lastTouchNavAt = 0
+    let lastTouchX = 0
+    let lastTouchY = 0
+    let suppressTouchClickUntil = 0
+    let pendingTouchRow: Element | null = null
+    let selectedRowAtArm: Element | null = null
+    let navClickArrived = false
+    let navObserver: MutationObserver | null = null
+    let navTimer: number | null = null
 
-  // iOS Safari touch self-heal (issue #72).
-  //
-  // A tap on a drawer row is delivered to the page as touchstart/touchend
-  // plus a browser-synthesized click. On iOS that click is routinely
-  // suppressed: a few px of finger drift is classified as a pan, and any DOM
-  // shift under the finger before dispatch cancels it outright. When it does
-  // not arrive, neither the row's own onClick nor the capture handler above
-  // runs — the row looks completely dead ("抽屉点了没反应").
-  //
-  // So: on touch/pen pointerup inside the drawer that hits a navigation row,
-  // arm a one-macrotask timer. When it fires:
-  // - the drawer is already closed → the real click did arrive and handled
-  //   everything → do nothing (zero interference with the normal path);
-  // - otherwise the click never came → re-dispatch a bubbling click on the
-  //   row ourselves. React's delegated listener runs the row's onClick (the
-  //   session opens / the workspace switches) and the same click bubbles
-  //   through the capture handler above, which closes the drawer.
-  //
-  // Mouse/pen-on-desktop keeps the plain click path: pointerType is 'mouse'.
-  useEffect(() => {
-    if (!mobile || !open) return
-    let timer: number | null = null
+    const drawerRoot = (): HTMLElement | null =>
+      document.querySelector<HTMLElement>(DRAWER_SELECTOR)
+
+    const disarmNav = (): void => {
+      navObserver?.disconnect()
+      navObserver = null
+      if (navTimer !== null) window.clearTimeout(navTimer)
+      navTimer = null
+      pendingTouchRow = null
+      selectedRowAtArm = null
+      navClickArrived = false
+    }
+
+    const armNav = (row: Element): void => {
+      disarmNav()
+      pendingTouchRow = row
+      const drawer = drawerRoot()
+      selectedRowAtArm = drawer?.querySelector('[role="treeitem"][aria-selected="true"]') ?? null
+      if (drawer === null) return
+      navObserver = new MutationObserver(() => {
+        const frame = document.querySelector('[data-mobile-nav="frame"]')
+        if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) {
+          disarmNav()
+          return
+        }
+        const selectedRow = drawerRoot()?.querySelector('[role="treeitem"][aria-selected="true"]') ?? null
+        if (navClickArrived && selectedRow !== null && selectedRow !== selectedRowAtArm) {
+          disarmNav()
+          toggleSidebar()
+        }
+      })
+      navObserver.observe(drawer, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-selected'],
+      })
+      navTimer = window.setTimeout(disarmNav, 2000)
+    }
+
+    const navigationTarget = (target: EventTarget | null): Element | null => {
+      if (document.querySelector('[aria-modal="true"]') !== null) return null
+      const frame = document.querySelector('[data-mobile-nav="frame"]')
+      if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) return null
+      if (!(target instanceof Element)) return null
+      const drawer = drawerRoot()
+      if (drawer === null || !drawer.contains(target)) return null
+      return navTargetFor(target)
+    }
+
+    const isPendingTouchClick = (event: MouseEvent): boolean => {
+      const capabilities = (event as MouseEvent & {
+        sourceCapabilities?: { firesTouchEvents?: boolean }
+      }).sourceCapabilities
+      if (capabilities?.firesTouchEvents === true) return true
+      return Math.hypot(event.clientX - lastTouchX, event.clientY - lastTouchY) <= 24
+    }
+
+    const onDrawerClick = (event: MouseEvent): void => {
+      // A touch row tap owns the close through the selection observer. Let the
+      // browser click reach React without a capture-phase close racing it.
+      if (performance.now() < suppressTouchClickUntil) return
+      if (
+        pendingTouchRow !== null
+        && performance.now() - lastTouchNavAt < 500
+        && isPendingTouchClick(event)
+      ) {
+        const target = navigationTarget(event.target)
+        const row = target?.closest('[role="treeitem"]')
+        if (row !== null && row !== undefined) {
+          pendingTouchRow = row
+          navClickArrived = true
+          return
+        }
+      }
+      if (navigationTarget(event.target) !== null) toggleSidebar()
+    }
+
     const onDrawerPointerUp = (event: PointerEvent): void => {
       if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return
-      const target = event.target
-      if (!(target instanceof Element)) return
-      const drawer = document.querySelector<HTMLElement>(DRAWER_SELECTOR)
-      if (drawer === null || !drawer.contains(target)) return
-      if (navTargetFor(target) === null) return
-      if (timer !== null) return
-      timer = window.setTimeout(() => {
-        timer = null
-        const frame = document.querySelector('[data-mobile-nav="frame"]')
-        // Real click already closed it — nothing to heal.
-        if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) return
-        const row = navTargetFor(target)
-        row?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
-      }, 0)
+      const target = navigationTarget(event.target)
+      if (target === null) return
+
+      const row = target.closest('[role="treeitem"]')
+      if (row !== null) {
+        if (row.getAttribute('aria-selected') === 'true') {
+          // Already-selected rows will not navigate; closing now is safe.
+          suppressTouchClickUntil = performance.now() + 500
+          toggleSidebar()
+        } else {
+          // Let React navigate first, then close on the selection mutation.
+          lastTouchNavAt = performance.now()
+          lastTouchX = event.clientX
+          lastTouchY = event.clientY
+          armNav(row)
+        }
+        return
+      }
+
+      // Non-row targets keep their existing click path; only host
+      // session/search rows participate in the selected-state hand-off.
     }
+
+    document.addEventListener('click', onDrawerClick, true)
     document.addEventListener('pointerup', onDrawerPointerUp, true)
     return () => {
-      if (timer !== null) window.clearTimeout(timer)
+      disarmNav()
+      document.removeEventListener('click', onDrawerClick, true)
       document.removeEventListener('pointerup', onDrawerPointerUp, true)
     }
-  }, [mobile, open])
+  }, [mobile, open, toggleSidebar])
 
   // Tap-outside closes the drawer (issue #38). The backdrop is now
   // pointer-events: none (pure dimming layer that never steals clicks), so
@@ -198,6 +258,8 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
       // unmounts with the sidebar, and the item's onClick never runs, so
       // every workspace control reads as "点了没反应" on a phone.
       if (isOverlayTap(target)) return
+      const frame = document.querySelector('[data-mobile-nav="frame"]')
+      if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) return
       const drawer = document.querySelector<HTMLElement>(DRAWER_SELECTOR)
       if (drawer !== null && drawer.contains(target)) return
       toggleSidebar()
