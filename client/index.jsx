@@ -168,27 +168,34 @@ function PocketSettingsTab({ rpcCall, t }) {
 
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+  const [requestedTunnelMode, setRequestedTunnelMode] = useState(null);
 
   const doStartTunnel = async () => {
-    // 命名隧道模式：Token/域名没配齐就不发起（服务端同样会拒绝）
-    const cfg = status?.tunnelConfig;
-    if (cfg?.mode === 'named' && (!cfg.hostname || !cfg.tokenSet)) {
-      setError(t('namedNeedCfg'));
-      return;
-    }
+    const mode = requestedTunnelMode ?? status?.tunnelConfig?.mode ?? 'quick';
     setBusy(true);
     setError(null);
-    setTunnelState({ phase: 'starting', detail: '正在开启…', startedAt: Date.now() });
     try {
+      let next = status;
+      if (next?.tunnelRunning && next?.tunnelActiveMode !== mode) {
+        next = await call(POCKET_ENDPOINTS.tunnelStop, {});
+      }
+      if (next?.tunnelConfig?.mode !== mode) {
+        next = await call(POCKET_ENDPOINTS.tunnelSetConfig, { mode });
+      }
+      const cfg = next?.tunnelConfig;
+      if (mode === 'named' && (!cfg?.hostname || !cfg?.tokenSet)) throw new Error(t('namedNeedCfg'));
+      setStatus(next);
+      setTunnelState({ phase: 'starting', detail: '正在开启…', startedAt: Date.now() });
       setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
       setError(err.message);
     } finally {
+      setRequestedTunnelMode(null);
       setBusy(false);
     }
   };
-  const startTunnel = () => {
-    // 每次开启都弹免责确认（勾选后才能继续）
+  const startTunnel = (mode) => {
+    setRequestedTunnelMode(mode);
     setDisclaimerChecked(false);
     setDisclaimerOpen(true);
   };
@@ -205,9 +212,6 @@ function PocketSettingsTab({ rpcCall, t }) {
   // 公网模式（issue #66）：随机域名（默认零配置）/ 固定域名（Cloudflare 命名隧道 + Tunnel Token）
   // tunnelCfg：编辑态 { hostname, token, err } | null；token 输入留空 = 保持已存的 Token 不变
   const [tunnelCfg, setTunnelCfg] = useState(null);
-  const switchToQuick = async () => {
-    try { setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, { mode: 'quick' })); } catch (err) { setError(err.message); }
-  };
   const saveNamedTunnel = async () => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, {
@@ -327,9 +331,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   // 公网模式视图（issue #66）：{ mode, hostname, tokenSet }
   const tunnelModeView = status?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false };
-  const namedMode = tunnelModeView.mode === 'named';
-  // 模式按钮选中态高亮：固定域名模式本身，或正在编辑固定域名配置，都视为「选中」
-  const namedActive = namedMode || tunnelCfg !== null;
+  const activeNamedMode = status?.tunnelActiveMode === 'named';
   // 后端错误消息统一为「中文 | English」混排；按当前界面语言只显示对应一半
   const errText = (msg) => {
     const s = String(msg ?? '');
@@ -346,12 +348,6 @@ function PocketSettingsTab({ rpcCall, t }) {
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
   useEffect(() => () => clearTimeout(toastTimer.current), []);
-  const modeBtnStyle = (active) => ({
-    ...styles.btn, height: 28, padding: '0 12px', fontSize: 12,
-    fontWeight: active ? 600 : 400,
-    background: active ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)',
-    color: active ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)',
-  });
   // iOS 风格小开关（重排后统一用：局域网总开关 / 局域网密码开关）
   const Switch = (on, onClick) => h('button', {
     role: 'switch', 'aria-checked': !!on,
@@ -467,92 +463,53 @@ function PocketSettingsTab({ rpcCall, t }) {
           : h('div', { style: styles.muted }, t('lanStarting'))),
     ),
 
-    // 公网：标题行自带 开启/关闭 → 开启后：二维码+地址、地址模式行、访问密码行
+    // 固定域名 Named：独立配置与启停。过渡期（PR2 前）仍使用公网访问密码。
     h('div', { style: styles.block },
-      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-        h('span', { style: { fontWeight: 600, fontSize: 13 } }, t('wanAccess')),
-        tunnelUrl
-          ? h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: stopTunnel }, t('stopTunnel'))
-          : h('button', { style: { ...styles.primary, height: 28, padding: '0 14px', fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy || tunnelStarting ? t('opening') : t('enable')),
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        h('div', null,
+          h('span', { style: { fontWeight: 600, fontSize: 13 } }, t('namedChannelTitle')),
+          h('div', { style: styles.muted }, t('namedChannelHint'))),
+        Switch(Boolean(tunnelUrl && activeNamedMode), () => tunnelUrl && activeNamedMode ? stopTunnel() : startTunnel('named')),
       ),
-      tunnelStarting
-        ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } },
-          tunnelPhase === 'downloading'
-            ? fmt(t, 'downloading', { s: elapsed(tunnelStateStarted) })
-            : fmt(t, 'connecting', { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t('slowHint') : '' }))
-        : tunnelPhase === 'error'
-          ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } },
-            fmt(t, 'error', { detail: errText(tunnelStateDetail) || t('unknownError') }))
-          : (!tunnelUrl && !isDesktop ? h('div', { style: { ...styles.muted, marginTop: 8 } }, t('wanOffHint')) : null),
-      tunnelUrl
-        ? h('div', null,
-          qrArea(status.tunnelQr, tunnelUrl, namedMode ? t('namedRunningHint') : t('wanHint')),
-          // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
-          h('div', { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: '4px solid var(--dsw-alias-state-warn-primary,#b45309)', background: 'var(--dsw-alias-bg-layer-2,#f3f4f6)', borderRadius: 8, padding: '8px 10px' } }, t('wanEphemeralWarn')),
-          // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
-          row(t('modeLabel'),
-            h('span', { style: { display: 'inline-flex', gap: 6 } },
-              h('button', { style: modeBtnStyle(!namedActive), onClick: namedMode ? switchToQuick : (tunnelCfg ? () => setTunnelCfg(null) : undefined) }, t('modeQuick')),
-              h('button', { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(tunnelCfg ? null : { hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('modeNamed')),
-            ),
-            h('div', { style: { marginTop: 6 } },
-              // 刚保存固定域名但当前连接仍是随机域名：需关闭后重新开启才生效
-              namedMode && /trycloudflare\.com/i.test(tunnelUrl ?? '') ? h('div', { style: { ...styles.warn } }, t('namedTakeEffect')) : null,
-              // 固定域名：已保存摘要 + 修改入口（非编辑态）
-              namedMode && !tunnelCfg ? h('div', { style: { ...styles.muted } },
-                fmt(t, 'namedSummary', { host: tunnelModeView.hostname || '—', token: tunnelModeView.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }),
-                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('namedEdit')),
-                h('div', { style: { ...styles.muted, marginTop: 4 } }, t('namedHow')),
-                !tunnelModeView.tokenSet || !tunnelModeView.hostname ? h('div', { style: { marginTop: 2, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('namedNeedCfg')) : null,
-              ) : null,
-              // 固定域名：编辑表单（域名 + Tunnel Token，Token 留空保持不变）
-              tunnelCfg ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
-                h('div', null,
-                  t('namedHostnameLabel'),
-                  h('input', {
-                    style: { margin: '4px 0 0 6px', padding: '4px 8px', fontSize: 13, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 6, outline: 'none', width: 200 },
-                    placeholder: 'pocket.example.com',
-                    value: tunnelCfg.hostname ?? '',
-                    autoFocus: true,
-                    onChange: (e) => setTunnelCfg((c) => ({ ...c, hostname: e.target.value.trim(), err: null })),
-                    onKeyDown: (e) => { if (e.key === 'Enter') saveNamedTunnel(); if (e.key === 'Escape') setTunnelCfg(null); },
-                  }),
-                ),
-                h('div', { style: { marginTop: 6 } },
-                  t('namedTokenLabel'),
-                  h('input', {
-                    style: { margin: '4px 0 0 6px', padding: '4px 8px', fontSize: 13, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 6, outline: 'none', width: 240, fontFamily: 'ui-monospace,Menlo,monospace' },
-                    type: 'password',
-                    value: tunnelCfg.token ?? '',
-                    onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })),
-                    onKeyDown: (e) => { if (e.key === 'Enter') saveNamedTunnel(); if (e.key === 'Escape') setTunnelCfg(null); },
-                  }),
-                ),
-                h('div', { style: { marginTop: 6, display: 'flex', gap: 8 } },
-                  h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: saveNamedTunnel }, t('save')),
-                  h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: () => setTunnelCfg(null) }, t('cancel')),
-                ),
-                h('div', { style: { ...styles.muted, marginTop: 6 } }, t('namedHow')),
-                h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } }, t('namedSecurity')),
-                tunnelCfg.err ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', marginTop: 4 } }, errText(tunnelCfg.err)) : null,
-              ) : null,
-            ),
-          ),
-          // 访问密码行：值 + 自定义（自定义输入态整体替换）
-          status.accessToken
-            ? row(t('pinLabel'),
-              customPin?.which === 'public'
-                ? null
-                : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8 } },
-                  h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, status.accessToken),
-                  customBtn('public')),
-              h('div', { style: { marginTop: 6 } },
-                customPin?.which === 'public' ? customPinRow('public') : null,
-                status?.publicPinCustom ? h('div', { style: { ...styles.warn } }, t('pinCustomHint')) : null,
-                namedMode ? h('div', { style: { ...styles.warn } }, t('namedSecurity')) : null))
-            : null,
-        )
-        : null,
+      !tunnelCfg ? row(t('namedConfig'),
+        h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('namedEdit')),
+        h('div', { style: { ...styles.muted, marginTop: 5 } }, fmt(t, 'namedSummary', { host: tunnelModeView.hostname || '—', token: tunnelModeView.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }))) : null,
+      tunnelCfg ? h('div', { style: { marginTop: 10, fontSize: 12, lineHeight: 1.6 } },
+        h('label', null, t('namedHostnameLabel')),
+        h('input', { style: { width: '100%', marginTop: 4, padding: '8px 10px' }, placeholder: 'pocket.example.com', value: tunnelCfg.hostname ?? '', onChange: (e) => setTunnelCfg((c) => ({ ...c, hostname: e.target.value.trim(), err: null })) }),
+        h('label', { style: { display: 'block', marginTop: 8 } }, t('namedTokenLabel')),
+        h('input', { style: { width: '100%', marginTop: 4, padding: '8px 10px', fontFamily: 'ui-monospace,Menlo,monospace' }, type: 'password', value: tunnelCfg.token ?? '', onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })) }),
+        h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+          h('button', { style: { ...styles.btn, height: 28 }, onClick: saveNamedTunnel }, t('save')),
+          h('button', { style: { ...styles.btn, height: 28 }, onClick: () => setTunnelCfg(null) }, t('cancel'))),
+        h('div', { style: { ...styles.muted, marginTop: 6 } }, t('namedHow')),
+        tunnelCfg.err ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', marginTop: 4 } }, errText(tunnelCfg.err)) : null) : null,
+      tunnelUrl && activeNamedMode ? qrArea(status.tunnelQr, tunnelUrl, t('namedRunningHint')) : null,
+      // 过渡提示：设备认证在下一个 PR 落地
+      h('div', { style: { ...styles.warn, marginTop: 8 } }, t('namedPinTransition')),
+      // 认证过渡期：Named 沿用公网访问密码
+      status?.accessToken ? row(t('pinLabel'),
+        customPin?.which === 'public'
+          ? null
+          : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8 } },
+            h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, status?.accessToken),
+            customBtn('public')),
+        h('div', { style: { marginTop: 6 } },
+          customPin?.which === 'public' ? customPinRow('public') : null,
+          status?.publicPinCustom ? h('div', { style: { ...styles.warn } }, t('pinCustomHint')) : null)) : null,
+    ),
+
+    // 随机域名 Quick：独立启停与共享密码。
+    h('div', { style: styles.block },
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        h('div', null, h('span', { style: { fontWeight: 600, fontSize: 13 } }, t('quickChannelTitle')), h('div', { style: styles.muted }, t('quickChannelHint'))),
+        Switch(Boolean(tunnelUrl && !activeNamedMode), () => tunnelUrl && !activeNamedMode ? stopTunnel() : startTunnel('quick')),
+      ),
+      tunnelStarting ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, tunnelPhase === 'downloading' ? fmt(t, 'downloading', { s: elapsed(tunnelStateStarted) }) : fmt(t, 'connecting', { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t('slowHint') : '' })) : null,
+      tunnelPhase === 'error' ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, fmt(t, 'error', { detail: errText(tunnelStateDetail) || t('unknownError') })) : null,
+      tunnelUrl && !activeNamedMode ? h('div', null, qrArea(status.tunnelQr, tunnelUrl, t('wanHint')), h('div', { style: { ...styles.warn, marginTop: 8 } }, t('wanEphemeralWarn'))) : null,
+      status?.accessToken ? row(t('pinLabel'), customPin?.which === 'public' ? null : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8 } }, h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, status?.accessToken), customBtn('public')),
+        h('div', { style: { marginTop: 6 } }, customPin?.which === 'public' ? customPinRow('public') : null, status?.publicPinCustom ? h('div', { style: styles.warn }, t('pinCustomHint')) : null)) : null,
     ),
 
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${errText(error)}`) : null,
@@ -642,6 +599,9 @@ export function apply(ctx) {
 
   const rpcCall = (endpoint, payload, signal) =>
     ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
+  // 设备管理走本机专用 admin 通道；代理对非 loopback 直接 403，远程设备无法调用。
+  const adminRpcCall = (endpoint, payload, signal) =>
+    ctx.connection.rpc.call(POCKET_ADMIN_RPC_CHANNEL, endpoint, payload, signal);
 
   // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en），并绑定一个随当前 locale 切换的 t()。
   const translate = ctx.locale.bind(POCKET_NS);

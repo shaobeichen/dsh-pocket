@@ -97,6 +97,7 @@ function redactStatus(s) {
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? "",
     tunnelRunning: s?.tunnelRunning === true,
+    tunnelActiveMode: s?.tunnelActiveMode === "named" ? "named" : s?.tunnelActiveMode === "quick" ? "quick" : null,
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: "idle" },
@@ -1889,6 +1890,12 @@ var zh2 = {
   "tunnelMode": "\u516C\u7F51\u6A21\u5F0F\uFF1A",
   "modeQuick": "\u968F\u673A\u57DF\u540D\uFF08\u9ED8\u8BA4\uFF09",
   "modeNamed": "\u56FA\u5B9A\u57DF\u540D",
+  "namedChannelTitle": "\u{1F310} \u56FA\u5B9A\u57DF\u540D Named Tunnel",
+  "namedChannelHint": "\u957F\u671F\u7A33\u5B9A\u5165\u53E3\uFF1B\u4E0E\u968F\u673A\u57DF\u540D\u4E0D\u53EF\u540C\u65F6\u542F\u7528",
+  "namedPinTransition": "\u672C\u901A\u9053\u5F53\u524D\u4ECD\u4F7F\u7528\u4E0B\u65B9\u516C\u7F51\u8BBF\u95EE\u5BC6\u7801\uFF1B\u540E\u7EED\u7248\u672C\u5C06\u6539\u4E3A\u6BCF\u8BBE\u5907\u72EC\u7ACB\u8BA4\u8BC1",
+  "quickChannelTitle": "\u26A1 \u968F\u673A\u57DF\u540D Quick Tunnel",
+  "quickChannelHint": "\u4E34\u65F6\u516C\u7F51\u5165\u53E3\uFF1B\u4E0E\u56FA\u5B9A\u57DF\u540D\u4E0D\u53EF\u540C\u65F6\u542F\u7528",
+  "namedConfig": "\u56FA\u5B9A\u57DF\u540D\u914D\u7F6E",
   "namedSummary": "\u56FA\u5B9A\u57DF\u540D\uFF1A{host} \xB7 Token {token}",
   "namedTokenSet": "\u5DF2\u914D\u7F6E",
   "namedTokenMissing": "\u672A\u914D\u7F6E",
@@ -1985,6 +1992,12 @@ var en2 = {
   "tunnelMode": "Mode:",
   "modeQuick": "Random URL (default)",
   "modeNamed": "Fixed domain",
+  "namedChannelTitle": "\u{1F310} Fixed domain \xB7 Named Tunnel",
+  "namedChannelHint": "Stable long-term access; mutually exclusive with Quick Tunnel",
+  "namedPinTransition": "This channel still uses the public PIN below; device authentication arrives in a later change",
+  "quickChannelTitle": "\u26A1 Random domain \xB7 Quick Tunnel",
+  "quickChannelHint": "Temporary public access; mutually exclusive with Named Tunnel",
+  "namedConfig": "Fixed domain configuration",
   "namedSummary": "Fixed domain: {host} \xB7 Token {token}",
   "namedTokenSet": "configured",
   "namedTokenMissing": "not set",
@@ -2142,24 +2155,33 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const [disclaimerOpen, setDisclaimerOpen] = (0, import_react2.useState)(false);
   const [disclaimerChecked, setDisclaimerChecked] = (0, import_react2.useState)(false);
+  const [requestedTunnelMode, setRequestedTunnelMode] = (0, import_react2.useState)(null);
   const doStartTunnel = async () => {
-    const cfg = status?.tunnelConfig;
-    if (cfg?.mode === "named" && (!cfg.hostname || !cfg.tokenSet)) {
-      setError(t("namedNeedCfg"));
-      return;
-    }
+    const mode = requestedTunnelMode ?? status?.tunnelConfig?.mode ?? "quick";
     setBusy(true);
     setError(null);
-    setTunnelState({ phase: "starting", detail: "\u6B63\u5728\u5F00\u542F\u2026", startedAt: Date.now() });
     try {
+      let next = status;
+      if (next?.tunnelRunning && next?.tunnelActiveMode !== mode) {
+        next = await call(POCKET_ENDPOINTS.tunnelStop, {});
+      }
+      if (next?.tunnelConfig?.mode !== mode) {
+        next = await call(POCKET_ENDPOINTS.tunnelSetConfig, { mode });
+      }
+      const cfg = next?.tunnelConfig;
+      if (mode === "named" && (!cfg?.hostname || !cfg?.tokenSet)) throw new Error(t("namedNeedCfg"));
+      setStatus(next);
+      setTunnelState({ phase: "starting", detail: "\u6B63\u5728\u5F00\u542F\u2026", startedAt: Date.now() });
       setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
       setError(err.message);
     } finally {
+      setRequestedTunnelMode(null);
       setBusy(false);
     }
   };
-  const startTunnel = () => {
+  const startTunnel = (mode) => {
+    setRequestedTunnelMode(mode);
     setDisclaimerChecked(false);
     setDisclaimerOpen(true);
   };
@@ -2175,13 +2197,6 @@ function PocketSettingsTab({ rpcCall, t }) {
     }
   };
   const [tunnelCfg, setTunnelCfg] = (0, import_react2.useState)(null);
-  const switchToQuick = async () => {
-    try {
-      setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, { mode: "quick" }));
-    } catch (err) {
-      setError(err.message);
-    }
-  };
   const saveNamedTunnel = async () => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, {
@@ -2291,8 +2306,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   const tunnelModeView = status?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false };
-  const namedMode = tunnelModeView.mode === "named";
-  const namedActive = namedMode || tunnelCfg !== null;
+  const activeNamedMode = status?.tunnelActiveMode === "named";
   const errText = (msg) => {
     const s = String(msg ?? "");
     const i = s.indexOf(" | ");
@@ -2307,15 +2321,6 @@ function PocketSettingsTab({ rpcCall, t }) {
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
   (0, import_react2.useEffect)(() => () => clearTimeout(toastTimer.current), []);
-  const modeBtnStyle = (active) => ({
-    ...styles.btn,
-    height: 28,
-    padding: "0 12px",
-    fontSize: 12,
-    fontWeight: active ? 600 : 400,
-    background: active ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)",
-    color: active ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)"
-  });
   const Switch = (on, onClick) => (0, import_react2.createElement)("button", {
     role: "switch",
     "aria-checked": !!on,
@@ -2456,118 +2461,79 @@ function PocketSettingsTab({ rpcCall, t }) {
         )
       ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
     ),
-    // 公网：标题行自带 开启/关闭 → 开启后：二维码+地址、地址模式行、访问密码行
+    // 固定域名 Named：独立配置与启停。过渡期（PR2 前）仍使用公网访问密码。
     (0, import_react2.createElement)(
       "div",
       { style: styles.block },
       (0, import_react2.createElement)(
         "div",
-        { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
-        (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("wanAccess")),
-        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy || tunnelStarting ? t("opening") : t("enable"))
-      ),
-      tunnelStarting ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
-        tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
-      ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
-        fmt(t, "error", { detail: errText(tunnelStateDetail) || t("unknownError") })
-      ) : !tunnelUrl && !isDesktop ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 8 } }, t("wanOffHint")) : null,
-      tunnelUrl ? (0, import_react2.createElement)(
-        "div",
-        null,
-        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint")),
-        // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
-        (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")),
-        // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
-        row(
-          t("modeLabel"),
-          (0, import_react2.createElement)(
-            "span",
-            { style: { display: "inline-flex", gap: 6 } },
-            (0, import_react2.createElement)("button", { style: modeBtnStyle(!namedActive), onClick: namedMode ? switchToQuick : tunnelCfg ? () => setTunnelCfg(null) : void 0 }, t("modeQuick")),
-            (0, import_react2.createElement)("button", { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(tunnelCfg ? null : { hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("modeNamed"))
-          ),
-          (0, import_react2.createElement)(
-            "div",
-            { style: { marginTop: 6 } },
-            // 刚保存固定域名但当前连接仍是随机域名：需关闭后重新开启才生效
-            namedMode && /trycloudflare\.com/i.test(tunnelUrl ?? "") ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("namedTakeEffect")) : null,
-            // 固定域名：已保存摘要 + 修改入口（非编辑态）
-            namedMode && !tunnelCfg ? (0, import_react2.createElement)(
-              "div",
-              { style: { ...styles.muted } },
-              fmt(t, "namedSummary", { host: tunnelModeView.hostname || "\u2014", token: tunnelModeView.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }),
-              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("namedEdit")),
-              (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("namedHow")),
-              !tunnelModeView.tokenSet || !tunnelModeView.hostname ? (0, import_react2.createElement)("div", { style: { marginTop: 2, color: "var(--dsw-alias-state-error-primary,#dc2626)" } }, t("namedNeedCfg")) : null
-            ) : null,
-            // 固定域名：编辑表单（域名 + Tunnel Token，Token 留空保持不变）
-            tunnelCfg ? (0, import_react2.createElement)(
-              "div",
-              { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
-              (0, import_react2.createElement)(
-                "div",
-                null,
-                t("namedHostnameLabel"),
-                (0, import_react2.createElement)("input", {
-                  style: { margin: "4px 0 0 6px", padding: "4px 8px", fontSize: 13, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 6, outline: "none", width: 200 },
-                  placeholder: "pocket.example.com",
-                  value: tunnelCfg.hostname ?? "",
-                  autoFocus: true,
-                  onChange: (e) => setTunnelCfg((c) => ({ ...c, hostname: e.target.value.trim(), err: null })),
-                  onKeyDown: (e) => {
-                    if (e.key === "Enter") saveNamedTunnel();
-                    if (e.key === "Escape") setTunnelCfg(null);
-                  }
-                })
-              ),
-              (0, import_react2.createElement)(
-                "div",
-                { style: { marginTop: 6 } },
-                t("namedTokenLabel"),
-                (0, import_react2.createElement)("input", {
-                  style: { margin: "4px 0 0 6px", padding: "4px 8px", fontSize: 13, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 6, outline: "none", width: 240, fontFamily: "ui-monospace,Menlo,monospace" },
-                  type: "password",
-                  value: tunnelCfg.token ?? "",
-                  onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })),
-                  onKeyDown: (e) => {
-                    if (e.key === "Enter") saveNamedTunnel();
-                    if (e.key === "Escape") setTunnelCfg(null);
-                  }
-                })
-              ),
-              (0, import_react2.createElement)(
-                "div",
-                { style: { marginTop: 6, display: "flex", gap: 8 } },
-                (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: saveNamedTunnel }, t("save")),
-                (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: () => setTunnelCfg(null) }, t("cancel"))
-              ),
-              (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("namedHow")),
-              (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("namedSecurity")),
-              tunnelCfg.err ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", marginTop: 4 } }, errText(tunnelCfg.err)) : null
-            ) : null
-          )
+        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
+        (0, import_react2.createElement)(
+          "div",
+          null,
+          (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("namedChannelTitle")),
+          (0, import_react2.createElement)("div", { style: styles.muted }, t("namedChannelHint"))
         ),
-        // 访问密码行：值 + 自定义（自定义输入态整体替换）
-        status.accessToken ? row(
-          t("pinLabel"),
-          customPin?.which === "public" ? null : (0, import_react2.createElement)(
-            "span",
-            { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
-            (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status.accessToken),
-            customBtn("public")
-          ),
-          (0, import_react2.createElement)(
-            "div",
-            { style: { marginTop: 6 } },
-            customPin?.which === "public" ? customPinRow("public") : null,
-            status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("pinCustomHint")) : null,
-            namedMode ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("namedSecurity")) : null
-          )
-        ) : null
+        Switch(Boolean(tunnelUrl && activeNamedMode), () => tunnelUrl && activeNamedMode ? stopTunnel() : startTunnel("named"))
+      ),
+      !tunnelCfg ? row(
+        t("namedConfig"),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("namedEdit")),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 5 } }, fmt(t, "namedSummary", { host: tunnelModeView.hostname || "\u2014", token: tunnelModeView.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }))
+      ) : null,
+      tunnelCfg ? (0, import_react2.createElement)(
+        "div",
+        { style: { marginTop: 10, fontSize: 12, lineHeight: 1.6 } },
+        (0, import_react2.createElement)("label", null, t("namedHostnameLabel")),
+        (0, import_react2.createElement)("input", { style: { width: "100%", marginTop: 4, padding: "8px 10px" }, placeholder: "pocket.example.com", value: tunnelCfg.hostname ?? "", onChange: (e) => setTunnelCfg((c) => ({ ...c, hostname: e.target.value.trim(), err: null })) }),
+        (0, import_react2.createElement)("label", { style: { display: "block", marginTop: 8 } }, t("namedTokenLabel")),
+        (0, import_react2.createElement)("input", { style: { width: "100%", marginTop: 4, padding: "8px 10px", fontFamily: "ui-monospace,Menlo,monospace" }, type: "password", value: tunnelCfg.token ?? "", onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })) }),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 8, display: "flex", gap: 8 } },
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28 }, onClick: saveNamedTunnel }, t("save")),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28 }, onClick: () => setTunnelCfg(null) }, t("cancel"))
+        ),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("namedHow")),
+        tunnelCfg.err ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", marginTop: 4 } }, errText(tunnelCfg.err)) : null
+      ) : null,
+      tunnelUrl && activeNamedMode ? qrArea(status.tunnelQr, tunnelUrl, t("namedRunningHint")) : null,
+      // 过渡提示：设备认证在下一个 PR 落地
+      (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, t("namedPinTransition")),
+      // 认证过渡期：Named 沿用公网访问密码
+      status?.accessToken ? row(
+        t("pinLabel"),
+        customPin?.which === "public" ? null : (0, import_react2.createElement)(
+          "span",
+          { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
+          (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status?.accessToken),
+          customBtn("public")
+        ),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 6 } },
+          customPin?.which === "public" ? customPinRow("public") : null,
+          status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("pinCustomHint")) : null
+        )
+      ) : null
+    ),
+    // 随机域名 Quick：独立启停与共享密码。
+    (0, import_react2.createElement)(
+      "div",
+      { style: styles.block },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
+        (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("quickChannelTitle")), (0, import_react2.createElement)("div", { style: styles.muted }, t("quickChannelHint"))),
+        Switch(Boolean(tunnelUrl && !activeNamedMode), () => tunnelUrl && !activeNamedMode ? stopTunnel() : startTunnel("quick"))
+      ),
+      tunnelStarting ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })) : null,
+      tunnelPhase === "error" ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } }, fmt(t, "error", { detail: errText(tunnelStateDetail) || t("unknownError") })) : null,
+      tunnelUrl && !activeNamedMode ? (0, import_react2.createElement)("div", null, qrArea(status.tunnelQr, tunnelUrl, t("wanHint")), (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, t("wanEphemeralWarn"))) : null,
+      status?.accessToken ? row(
+        t("pinLabel"),
+        customPin?.which === "public" ? null : (0, import_react2.createElement)("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status?.accessToken), customBtn("public")),
+        (0, import_react2.createElement)("div", { style: { marginTop: 6 } }, customPin?.which === "public" ? customPinRow("public") : null, status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: styles.warn }, t("pinCustomHint")) : null)
       ) : null
     ),
     error ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, marginTop: 8 } }, `\u274C ${errText(error)}`) : null,
@@ -2674,6 +2640,7 @@ function apply(ctx) {
   }
   mobileApply(ctx);
   const rpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
+  const adminRpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_ADMIN_RPC_CHANNEL, endpoint, payload, signal);
   const translate = ctx.locale.bind(NS2);
   ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2 }), "dsh-pocket: pocket locale dictionaries");
   ctx.slots.inject(

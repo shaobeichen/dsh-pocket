@@ -100,7 +100,9 @@ test('client bundle：status 访问必须可选链（回归：1.9.0 白屏——
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
   assert.ok(!src.includes('status.lanAuthEnabled'), 'bundle 不允许裸 status.lanAuthEnabled（必须可选链）');
+  assert.ok(!src.includes('status.accessToken'), 'bundle 不允许裸 status.accessToken（必须可选链）');
   assert.ok(src.includes('status?.lanAuthEnabled'), 'bundle 存在可选链访问');
+  assert.ok(src.includes('status?.accessToken'), 'accessToken 走可选链访问');
 });
 
 test('移动导航 backdrop（issue #38）：点击穿透不抢抽屉内点击 + 抽屉外点击关闭保留', async () => {

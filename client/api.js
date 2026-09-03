@@ -64,6 +64,7 @@ export function redactStatus(s) {
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? '',
     tunnelRunning: s?.tunnelRunning === true,
+    tunnelActiveMode: s?.tunnelActiveMode === 'named' ? 'named' : (s?.tunnelActiveMode === 'quick' ? 'quick' : null),
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: 'idle' },
