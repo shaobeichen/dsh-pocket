@@ -79,12 +79,12 @@ function postJson(port, path, body, { host = '127.0.0.1', origin, contentType = 
 }
 
 /** 装配一个跑在 fake webServer 上的 dsh-pocket RPC，返回 { port, stop, ctx, installDispose }。 */
-async function setup({ requestRejection, opts = {} } = {}) {
+async function setup({ requestRejection, opts = {}, connection } = {}) {
   const webServer = fakeWebServer();
   // 故意把 rpc.handle 设成抛错：若走回退路径就直接失败，证明走的是直接 mount 路径。
   const ctx = {
     webServer,
-    connection: {
+    connection: connection ?? {
       rpc: { handle: () => { throw new Error('test: must not call rpc.handle when webServer is available'); } },
       requestRejection,
     },
@@ -126,6 +126,35 @@ test('认证门：requestRejection 返回 403 → 403 forbidden', async () => {
     const res = await postJson(env.port, `${POCKET_RPC_CHANNEL}/${POCKET_ENDPOINTS.status}`, { rpcId: 'r3', method: POCKET_ENDPOINTS.status, payload: {} });
     assert.equal(res.status, 403);
     assert.equal(res.body, 'forbidden');
+  } finally { await env.stop(); }
+});
+
+test('issue #117：requestRejection 必须以方法形式调用（保留 this），否则任何请求都被兜成 403', async () => {
+  // 与 dsh 的 HostConnectionService.requestRejection 同构：**类方法**，内部依赖 this。
+  // 旧实现把方法抽成裸函数再调用（const fn = ctx.connection.requestRejection; fn(req)）
+  // → this 丢失 → TypeError → 被 catch 兜底成 403，于是本机/带 cookie 的浏览器/移动端
+  // 所有请求全被判 forbidden，设置页 status RPC 全挂（用户症状：「代理未就绪…」）。
+  class FakeConnection {
+    constructor() { this.trustedHosts = ['127.0.0.1']; }
+    // 未绑定 this 时 this.trustedHosts 读取即抛 TypeError
+    requestRejection() {
+      if (!Array.isArray(this.trustedHosts)) {
+        throw new TypeError("Cannot read properties of undefined (reading 'trustedHosts')");
+      }
+      return undefined; // 放行
+    }
+  }
+  const conn = new FakeConnection();
+  // 故意设成抛错：证明走的是直接 mount 路径而非 rpc.handle 回退
+  conn.rpc = { handle: () => { throw new Error('test: must not call rpc.handle when webServer is available'); } };
+  const env = await setup({ connection: conn });
+  try {
+    const res = await postJson(env.port, `${POCKET_RPC_CHANNEL}/${POCKET_ENDPOINTS.status}`, { rpcId: 'th1', method: POCKET_ENDPOINTS.status, payload: {} });
+    // 旧实现（this 丢失 → catch → 403 forbidden）在此断言失败
+    assert.equal(res.status, 200, `期望放行 200，实际 ${res.status} ${res.body}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.result.ok, true);
+    assert.equal(body.result.value.dshPort, 3080);
   } finally { await env.stop(); }
 });
 
