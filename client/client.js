@@ -1799,8 +1799,8 @@ function mobileApply(ctx) {
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
-    const PHRASES = ["加载提供方目录失败", "Settings are unavailable in this browser"];
-    const NOTICE = "手机上不支持模型设置，请去电脑端修改设置";
+    const PHRASES = ["\u52A0\u8F7D\u63D0\u4F9B\u65B9\u76EE\u5F55\u5931\u8D25", "Settings are unavailable in this browser"];
+    const NOTICE = "\u624B\u673A\u4E0A\u4E0D\u652F\u6301\u6A21\u578B\u8BBE\u7F6E\uFF0C\u8BF7\u53BB\u7535\u8111\u7AEF\u4FEE\u6539\u8BBE\u7F6E";
     const findDeepest = (el) => {
       let deepest = el;
       for (const child of el.querySelectorAll("*")) {
@@ -1821,9 +1821,7 @@ function mobileApply(ctx) {
     const observer = new MutationObserver(patch);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     patch();
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, "dsh-mobile-nav: replace model-settings load error with mobile hint");
   ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
     name: "conversation.session.header.actions",
@@ -1913,10 +1911,10 @@ var zh2 = {
   "lanPinCustomValue": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u81EA\u5B9A\u4E49\uFF1B\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF09",
   "refresh": "\u5237\u65B0",
   "customize": "\u81EA\u5B9A\u4E49",
-  "customizing": "\u65B0\u5BC6\u7801\uFF088 \u4F4D\uFF0C\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57\uFF09\uFF1A",
+  "customizing": "\u65B0\u5BC6\u7801\uFF088\u201364 \u4F4D\uFF0C\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57\uFF09\uFF1A",
   "save": "\u4FDD\u5B58",
   "cancel": "\u53D6\u6D88",
-  "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8 \u4F4D\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57",
+  "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8\u201364 \u4F4D\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57",
   "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
@@ -2009,10 +2007,10 @@ var en2 = {
   "lanPinCustomValue": "\u{1F510} PIN: {pin} (custom; required on the phone)",
   "refresh": "Refresh",
   "customize": "Customize",
-  "customizing": "New PIN (8 chars, letters/digits): ",
+  "customizing": "New PIN (8\u201364 chars, letters/digits): ",
   "save": "Save",
   "cancel": "Cancel",
-  "pinInvalid": "PIN must be exactly 8 characters (letters and digits only)",
+  "pinInvalid": "PIN must be 8\u201364 characters (letters and digits only)",
   "pinCustomHint": "custom PINs are not rotated on tunnel start",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
   "lanStarting": "Proxy starting\u2026",
@@ -2312,7 +2310,8 @@ function PocketSettingsTab({ rpcCall, t }) {
     (0, import_react2.createElement)("input", {
       style: { width: 130, margin: "0 6px", padding: "4px 8px", fontSize: 14, letterSpacing: 1, textAlign: "center", border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 6, outline: "none" },
       type: "password",
-      maxLength: 8,
+      minLength: 8,
+      maxLength: 64,
       value: customPin?.value ?? "",
       autoFocus: true,
       onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[^a-zA-Z0-9]/g, ""), err: null })),
