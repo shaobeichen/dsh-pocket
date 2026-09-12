@@ -9,7 +9,7 @@
 
 import { createElement as h, useEffect, useRef, useState } from 'react';
 
-import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, redactStatus, compareVersions } from './api.js';
+import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT, redactStatus, compareVersions } from './api.js';
 import { mobileApply } from './mobile/mobile-apply.tsx';
 import { NS as POCKET_NS, zh as POCKET_ZH, en as POCKET_EN } from './pocket-locales.js';
 
@@ -44,6 +44,12 @@ const styles = {
   warn: { color: 'var(--dsw-alias-state-warn-primary,#b45309)', fontSize: 12, lineHeight: 1.5 },
 };
 
+function applyMobileRightbarSetting(enabled) {
+  const on = enabled !== false;
+  document.body?.setAttribute(MOBILE_RIGHTBAR_ATTRIBUTE, on ? 'on' : 'off');
+  window.dispatchEvent(new CustomEvent(MOBILE_RIGHTBAR_EVENT, { detail: { enabled: on } }));
+}
+
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -71,6 +77,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     try {
       const s = await call(POCKET_ENDPOINTS.status, {});
       setStatus(s);
+      applyMobileRightbarSetting(s.mobileRightbarEnabled);
       setTunnelState(s.tunnelState ?? null);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
@@ -228,7 +235,9 @@ function PocketSettingsTab({ rpcCall, t }) {
     setBusy(true);
     setError(null);
     try {
-      setStatus(await call(POCKET_ENDPOINTS.pocketReset, { confirm: true }));
+      const next = await call(POCKET_ENDPOINTS.pocketReset, { confirm: true });
+      setStatus(next);
+      applyMobileRightbarSetting(next.mobileRightbarEnabled);
       setTunnelCfg(null);
       setCustomPin(null);
       setAdvOpen(false);
@@ -255,6 +264,17 @@ function PocketSettingsTab({ rpcCall, t }) {
       const r = await call(POCKET_ENDPOINTS.lanAuthSetEnabled, { on });
       setStatus((s) => ({ ...s, lanAuthEnabled: r.lanAuthEnabled }));
     } catch { /* 忽略 */ }
+  };
+
+  const setMobileRightbar = async (on) => {
+    try {
+      const r = await call(POCKET_ENDPOINTS.mobileRightbarSetEnabled, { on });
+      const enabled = r.mobileRightbarEnabled === true;
+      setStatus((s) => ({ ...s, mobileRightbarEnabled: enabled }));
+      applyMobileRightbarSetting(enabled);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   // 局域网访问总开关：关闭后局域网扫码/链接直接失效（公网不受影响）。
@@ -553,6 +573,14 @@ function PocketSettingsTab({ rpcCall, t }) {
             : null,
         )
         : null,
+    ),
+
+    h('div', { style: styles.block },
+      row(
+        t('mobileRightbar'),
+        Switch(status?.mobileRightbarEnabled !== false, () => setMobileRightbar(status?.mobileRightbarEnabled === false)),
+        h('div', { style: { ...styles.muted, marginTop: 6 } }, t('mobileRightbarHint')),
+      ),
     ),
 
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${errText(error)}`) : null,

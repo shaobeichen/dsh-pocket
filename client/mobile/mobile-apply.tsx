@@ -5,7 +5,7 @@ import { MobileNavOverlay } from './MobileNavOverlay.tsx'
 import { MobileDrawerFooter } from './MobileDrawerFooter.tsx'
 import { startFileGuard } from './fileGuard.ts'
 import { MOBILE_CSS } from './mobile.css.ts'
-import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS } from '../api.js'
+import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT } from '../api.js'
 import { NS, en, zh } from './locales.ts'
 import type { MobileNavKey } from './locales.ts'
 import { resolveLayout, persistLayoutFromUrl } from './layout-mode.mjs'
@@ -43,6 +43,34 @@ export function mobileApply(ctx): void {
   }
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-mobile-nav: dictionaries')
+
+  ctx.effect(() => {
+    let active = true
+    const applyEnabled = (enabled: boolean): void => {
+      document.body?.setAttribute(MOBILE_RIGHTBAR_ATTRIBUTE, enabled ? 'on' : 'off')
+    }
+    const onChange = (event: Event): void => {
+      applyEnabled((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true)
+    }
+    const load = async (): Promise<void> => {
+      try {
+        const result = await ctx.connection.rpc.call(POCKET_RPC_CHANNEL, POCKET_ENDPOINTS.status, {}) as {
+          ok?: boolean
+          value?: { mobileRightbarEnabled?: boolean }
+        }
+        if (active) applyEnabled(result?.ok === true ? result.value?.mobileRightbarEnabled !== false : true)
+      } catch {
+        if (active) applyEnabled(true)
+      }
+    }
+    window.addEventListener(MOBILE_RIGHTBAR_EVENT, onChange)
+    void load()
+    return () => {
+      active = false
+      window.removeEventListener(MOBILE_RIGHTBAR_EVENT, onChange)
+      document.body?.removeAttribute(MOBILE_RIGHTBAR_ATTRIBUTE)
+    }
+  }, 'dsh-mobile-nav: optional right sidebar')
 
   ctx.effect(() => {
     const tag = document.createElement('style')

@@ -58,6 +58,16 @@ test('再开 → true；settings.json 权限 0600', () => withHome(async () => {
   }
 }));
 
+test('手机端右边栏默认开启，可关闭并持久化', () => withHome(async () => {
+  const { mobileRightbarEnabled, setMobileRightbarEnabled, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(mobileRightbarEnabled(), true, '默认开启');
+  assert.equal(setMobileRightbarEnabled(false), false, '返回关闭状态');
+  assert.equal(mobileRightbarEnabled(), false, '关闭后立即生效');
+  const raw = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+  assert.equal(raw.mobileRightbarEnabled, false, 'settings.json 内容正确');
+  assert.equal(setMobileRightbarEnabled(true), true, '可再次开启');
+}));
+
 test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv4 拒绝', () => withHome(async () => {
   const { lanIpOverride, setLanIpOverride, settingsPath } = await import('../lib/settings.mjs');
   assert.equal(lanIpOverride(), '', '默认自动');
@@ -153,6 +163,7 @@ test('恢复出厂设置：清空全部设置 + 重设随机密码（开关回�
   // 先把设置搞成非默认：关掉开关、切命名隧道、填 Token/域名、自定义密码
   settings.setLanEnabled(false);
   settings.setLanAuthEnabled(false);
+  settings.setMobileRightbarEnabled(true);
   settings.setLanIpOverride('10.0.0.7');
   settings.setTunnelMode('named');
   settings.setTunnelToken('eyJhIjoiY2xvdWRmbGFyZS10b2tlbi1leGFtcGxlLXZhbHVlIn0');
@@ -170,6 +181,7 @@ test('恢复出厂设置：清空全部设置 + 重设随机密码（开关回�
   // 全部开关回到出厂默认
   assert.equal(settings.lanEnabled(), true, '局域网访问恢复默认开');
   assert.equal(settings.lanAuthEnabled(), true, '访问密码恢复默认开');
+  assert.equal(settings.mobileRightbarEnabled(), true, '手机端右边栏恢复默认开');
   assert.equal(settings.lanIpOverride(), '', '局域网地址恢复自动');
   assert.equal(settings.tunnelMode(), 'quick', '公网模式恢复随机域名');
   assert.equal(settings.tunnelToken(), '', 'Tunnel Token 已清空');

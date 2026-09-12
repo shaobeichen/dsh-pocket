@@ -407,12 +407,8 @@ export const MOBILE_CSS = `
   }
 
   /* --- Session header on mobile ---
-     Layout goal: [toggle] [session title] [mode badge] in a row, with the
-     Session log capsule removed from the header (relocated to the drawer
-     footer). Stable structural hooks only:
-       [data-phase] header                     the session header element
-       header > :first-child                   titleRow (titleCluster + utilities)
-       header > :first-child > :last-child     headerUtilities (Session log seat) */
+     Layout goal: [toggle] [session title] [mode badge] in a row. The optional
+     rightbar entry uses the shell's stable header-corner hook. */
   [data-phase] header {
     padding: 8px 12px 0 !important;
   }
@@ -449,10 +445,13 @@ export const MOBILE_CSS = `
     top: 12px !important;
     z-index: 2 !important;
   }
-  /* Session log download: gone from the header row on mobile (the utilities
-     seat holds only the session-log-export capsule). */
-  [data-phase] header > :first-child > :last-child {
+  /* The native rightbar entry is visible by default. Users who prefer the
+     compact header can turn it off in Pocket settings. */
+  body[data-dsh-pocket-mobile-rightbar="off"] [data-conversation-header-corner] {
     display: none !important;
+  }
+  body:not([data-dsh-pocket-mobile-rightbar="off"]) [data-mobile-nav="files"] {
+    right: 44px !important;
   }
 
   /* --- Settings dialog on mobile ---
