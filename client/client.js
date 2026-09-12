@@ -105,6 +105,87 @@ function redactStatus(s) {
   };
 }
 
+// client/pocket-nav-icon.mjs
+var NAV_ICON_MARKER = "data-dsh-pocket-nav-icon";
+var NAV_ROW_SELECTOR = '[role="dialog"] nav button';
+var NAV_ICON_SIZE = 16;
+var NAV_ICON_SIZE_NARROW = 14;
+var NARROW_MEDIA_QUERY = "(max-width: 1023px)";
+var PHONE_GLYPH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.75" y="1.05" width="8.5" height="13.9" rx="1.15"/><path d="M7.27 3.2h1.46"/><circle cx="8" cy="12.6" r="1.16" fill="#000" stroke="none"/></svg>';
+function phoneMaskUrl(svg = PHONE_GLYPH_SVG) {
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+function isOwnNavRow(rowText, wantedLabel) {
+  const wanted = String(wantedLabel ?? "").trim();
+  if (wanted.length === 0) return false;
+  return String(rowText ?? "").trim() === wanted;
+}
+function navIconCss(maskUrl) {
+  return [
+    `[${NAV_ICON_MARKER}] > svg { display: none; }`,
+    `[${NAV_ICON_MARKER}]::before {`,
+    `  content: '';`,
+    `  flex: none;`,
+    `  width: ${NAV_ICON_SIZE}px;`,
+    `  height: ${NAV_ICON_SIZE}px;`,
+    `  background-color: currentColor;`,
+    `  -webkit-mask-image: url("${maskUrl}");`,
+    `  mask-image: url("${maskUrl}");`,
+    `  -webkit-mask-repeat: no-repeat;`,
+    `  mask-repeat: no-repeat;`,
+    `  -webkit-mask-position: center;`,
+    `  mask-position: center;`,
+    `  -webkit-mask-size: ${NAV_ICON_SIZE}px ${NAV_ICON_SIZE}px;`,
+    `  mask-size: ${NAV_ICON_SIZE}px ${NAV_ICON_SIZE}px;`,
+    `}`,
+    `@media ${NARROW_MEDIA_QUERY} {`,
+    `  [${NAV_ICON_MARKER}]::before {`,
+    `    width: ${NAV_ICON_SIZE_NARROW}px;`,
+    `    height: ${NAV_ICON_SIZE_NARROW}px;`,
+    `    -webkit-mask-size: ${NAV_ICON_SIZE_NARROW}px ${NAV_ICON_SIZE_NARROW}px;`,
+    `    mask-size: ${NAV_ICON_SIZE_NARROW}px ${NAV_ICON_SIZE_NARROW}px;`,
+    `  }`,
+    `}`
+  ].join("\n");
+}
+function installSettingsNavIcon(ctx, resolveLabel) {
+  if (typeof document === "undefined") return;
+  ctx.effect(() => {
+    const tag = document.createElement("style");
+    tag.dataset.plugin = "dsh-pocket";
+    tag.dataset.pluginCss = "dsh-pocket/nav-icon";
+    tag.textContent = navIconCss(phoneMaskUrl());
+    document.head.appendChild(tag);
+    let disposed = false;
+    let scheduled = false;
+    const sync = () => {
+      scheduled = false;
+      if (disposed) return;
+      const wanted = resolveLabel();
+      for (const row of document.querySelectorAll(NAV_ROW_SELECTOR)) {
+        if (isOwnNavRow(row.textContent, wanted)) row.setAttribute(NAV_ICON_MARKER, "");
+        else row.removeAttribute(NAV_ICON_MARKER);
+      }
+    };
+    const schedule = () => {
+      if (scheduled || disposed) return;
+      scheduled = true;
+      queueMicrotask(sync);
+    };
+    sync();
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      for (const row of document.querySelectorAll(`[${NAV_ICON_MARKER}]`)) {
+        row.removeAttribute(NAV_ICON_MARKER);
+      }
+      tag.remove();
+    };
+  }, "dsh-pocket: settings nav icon");
+}
+
 // client/mobile/MobileNavToggle.tsx
 var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 function MobileNavToggle({ toggleSidebar, t }) {
@@ -1799,8 +1880,8 @@ function mobileApply(ctx) {
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
-    const PHRASES = ["加载提供方目录失败", "Settings are unavailable in this browser"];
-    const NOTICE = "手机上不支持模型设置，请去电脑端修改设置";
+    const PHRASES = ["\u52A0\u8F7D\u63D0\u4F9B\u65B9\u76EE\u5F55\u5931\u8D25", "Settings are unavailable in this browser"];
+    const NOTICE = "\u624B\u673A\u4E0A\u4E0D\u652F\u6301\u6A21\u578B\u8BBE\u7F6E\uFF0C\u8BF7\u53BB\u7535\u8111\u7AEF\u4FEE\u6539\u8BBE\u7F6E";
     const findDeepest = (el) => {
       let deepest = el;
       for (const child of el.querySelectorAll("*")) {
@@ -1821,9 +1902,7 @@ function mobileApply(ctx) {
     const observer = new MutationObserver(patch);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     patch();
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, "dsh-mobile-nav: replace model-settings load error with mobile hint");
   ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
     name: "conversation.session.header.actions",
@@ -2718,6 +2797,7 @@ function apply(ctx) {
   const rpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
   const translate = ctx.locale.bind(NS2);
   ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2 }), "dsh-pocket: pocket locale dictionaries");
+  installSettingsNavIcon(ctx, () => translate("section"));
   ctx.slots.inject(
     "settings.section",
     () => ctx.slots.register(
