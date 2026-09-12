@@ -161,6 +161,21 @@ test('打包产物里带上抽屉规则的关键字', () => {
   }
 });
 
+test('手机端右边栏默认显示，设置关闭后隐藏稳定 header corner 入口', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  const apply = readFileSync(new URL('../client/mobile/mobile-apply.tsx', import.meta.url), 'utf8');
+  assert.ok(
+    css.includes('body[data-dsh-pocket-mobile-rightbar="off"] [data-conversation-header-corner]'),
+    '仅在用户关闭设置时隐藏官方右栏入口',
+  );
+  assert.ok(
+    !css.includes('[data-phase] header > :first-child > :last-child'),
+    '不能依赖标题栏子元素顺序隐藏右栏入口',
+  );
+  assert.ok(apply.includes('POCKET_ENDPOINTS.status'), '移动端启动时读取持久化设置');
+  assert.ok(apply.includes('MOBILE_RIGHTBAR_EVENT'), '设置切换后立即同步右栏入口');
+});
+
 test('composer 底栏用稳定 card 标记并在 360px 视口保持单行', () => {
   const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
   assert.ok(css.includes('[data-composer-card="true"] > [class$="_row"]'));
