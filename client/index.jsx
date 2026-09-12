@@ -282,7 +282,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     }
   };
 
-  // 自定义访问密码（issue #33）：公网/局域网各自设固定 8 位密码（英文字母大小写或数字）；自定义后公网不再自动轮换。
+  // 自定义访问密码（issue #33）：公网/局域网各自设固定 8–64 位密码（英文字母大小写或数字）；自定义后公网不再自动轮换。
   // customPin: { which: 'public'|'lan', value, err } | null —— 正在输入自定义密码的区块
   const [customPin, setCustomPin] = useState(null);
   const saveCustomPin = async (which) => {
@@ -306,7 +306,8 @@ function PocketSettingsTab({ rpcCall, t }) {
     h('input', {
       style: { width: 130, margin: '0 6px', padding: '4px 8px', fontSize: 14, letterSpacing: 1, textAlign: 'center', border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 6, outline: 'none' },
       type: 'password',
-      maxLength: 8,
+      minLength: 8,
+      maxLength: 64,
       value: customPin?.value ?? '',
       autoFocus: true,
       onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[^a-zA-Z0-9]/g, ''), err: null })),
