@@ -422,6 +422,78 @@ test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async
   }
 });
 
+test('HTML 导航请求向上游要求 identity，压缩文档也能注入（上游按 accept-encoding 压缩的场景）', async () => {
+  const zlib = await import('node:zlib');
+  const up = createServer((req, res) => {
+    if (req.url === '/') {
+      // 模拟 dsh web：客户端带 gzip 时返回压缩文档
+      if (String(req.headers['accept-encoding'] ?? '').includes('gzip')) {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-encoding': 'gzip' });
+        res.end(zlib.gzipSync('<!doctype html><head></head><body>gz</body>'));
+      } else {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.end('<!doctype html><head></head><body>identity</body>');
+      }
+    } else {
+      res.writeHead(200, { 'content-type': 'application/javascript' });
+      res.end('console.log("asset");');
+    }
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port } });
+  try {
+    // 用原始 http.request（不带 undici 自动解压）拿真实字节
+    const raw = await new Promise((resolve, reject) => {
+      const req = httpRequest({ host: '127.0.0.1', port: proxy.port, path: '/', headers: { accept: 'text/html', 'accept-encoding': 'gzip' } }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    assert.equal(raw.headers['content-encoding'], undefined, '导航响应未压缩（可注入）');
+    assert.ok(raw.body.toString('utf8').includes('randomUUID'), '浏览器导航也能拿到注入');
+    assert.ok(raw.body.toString('utf8').includes('identity'), '注入的是上游未压缩文档');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
+test('TRUSTED_TRANSPORT_SHIM（issue #58）：默认关闭，开启后注入 ownsHost 标记，运行时切换立即生效', async () => {
+  const up = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><head><title>x</title></head><body>app</body>');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const flag = { v: false };
+  let off = null;
+  let on = null;
+  try {
+    off = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port } });
+    const htmlOff = await (await fetch(`http://127.0.0.1:${off.port}/`)).text();
+    assert.ok(!htmlOff.includes('ownsHost'), '默认（关闭）不注入 ownsHost');
+    assert.ok(htmlOff.includes('data-dsh-pocket-transport-shim'), '基础 transport shim 仍在');
+
+    on = await createPocketProxy({
+      port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port },
+      trustProxiedClients: () => flag.v,
+    });
+    flag.v = true;
+    const htmlOn = await (await fetch(`http://127.0.0.1:${on.port}/`)).text();
+    assert.ok(htmlOn.includes('ownsHost:true'), '开启后注入 ownsHost:true');
+    assert.ok(htmlOn.indexOf('ownsHost:true') < htmlOn.indexOf('</head>'), '注入在 head 内、bundle 之前');
+    flag.v = false;
+    const htmlOff2 = await (await fetch(`http://127.0.0.1:${on.port}/`)).text();
+    assert.ok(!htmlOff2.includes('ownsHost'), '关闭开关后立即停止注入（无需重启代理）');
+  } finally {
+    if (off) await off.close();
+    if (on) await on.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('活动 WS 连接存在时 close 不挂起（closeAllConnections）', async () => {
   const up = await fakeUpstream();
   const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.port } });

@@ -13,6 +13,7 @@ export const POCKET_ENDPOINTS = Object.freeze({
   restart: 'pocket.restart',
   lanTokenRefresh: 'token.lanRefresh',
   lanAuthSetEnabled: 'lanAuth.setEnabled',
+  trustSetEnabled: 'trust.setEnabled',
   lanSetOverride: 'lan.setOverride',
   lanSetEnabled: 'lan.setEnabled',
   mobileRightbarSetEnabled: 'mobile.rightbar.setEnabled',

@@ -53,6 +53,7 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 | ⚡ Real-time sync            | Streaming output passes through WebSocket untouched — what the computer renders, the phone renders live; fully interactive both ways; built-in WS heartbeat keep-alive (defeats silent NAT/battery link drops with auto-reconnect)                                                |
 | 📱 Mobile-adaptive layout    | Narrow screens get a drawer layout automatically (ported from dsh-web-mobile, MIT): sidebar drawer, full-width conversation, safe-area insets, touch optimizations                                                                                                                |
 | 🧭 Optional right sidebar    | Shows the native right-sidebar entry on mobile; disable it for a compact phone header or keep it available alongside the terminal dock on an unfolded display                                                                                                                     |
+| 🛠️ Remote settings           | Phone/remote pages can **edit plugin config and models** (issue #58). **Off by default** (remote pages are read-only; change settings on the computer itself).            |
 | 📁 File browser              | The mobile "Files" entries need a host-side explorer panel (a dsh-web-ui component); on stock DSH without it the entries are auto-hidden instead of doing nothing                                                                                                                 |
 | 🗜️ Transfer compression      | Large JSON responses are gzip/brotli'd on the fly (17MB session history → ~1MB; brotli quality 6: fast and bandwidth-friendly) — faster loads, less mobile data                                                                                                                   |
 | 🔁 Tunnel auto-restore       | After a DSH restart the previously-running public tunnel comes back automatically                                                                                                                                                                                                 |
@@ -88,6 +89,8 @@ Settings → **Phone access** → scan the "📶 LAN" QR code → enter the **LA
 > The "**LAN access**" switch is **on by default** and can be **turned off/on with one click** (a confirmation dialog shows each time). Off kills the LAN QR code and link instantly (phones can't open them); **public access is unaffected**. Tap "On" to restore it.
 >
 > The LAN PIN is **on by default** (security-first). If you're the only user and find typing it every time annoying, flip "LAN access PIN" to **Off** in the LAN block — LAN scans then connect directly with no PIN (LAN-only devices; the **public tunnel always requires a PIN**, unaffected).
+>
+> "**Remote settings**" is **off by default**: plugin config and models are read-only on phone/remote pages — change them on the computer itself (127.0.0.1). Flip it **On** in the LAN block and the phone can edit plugin config and models directly.
 >
 > After logging in once, the phone **won't ask again**: as long as the computer's dsh web keeps running, reopening the phone needs no PIN (**a dsh web restart/update asks for it once more**).
 >

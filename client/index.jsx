@@ -266,6 +266,15 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch { /* 忽略 */ }
   };
 
+  // 远程设置开关（issue #58）：开启后手机/远程页面的插件配置、模型管理恢复可编辑；
+  // 关闭回到只读（设置仅本机可改）。安全边界为访问密码。
+  const setTrust = async (on) => {
+    try {
+      const r = await call(POCKET_ENDPOINTS.trustSetEnabled, { on });
+      setStatus((s) => ({ ...s, trustProxiedClients: r.trustProxiedClients }));
+    } catch { /* 忽略 */ }
+  };
+
   const setMobileRightbar = async (on) => {
     try {
       const r = await call(POCKET_ENDPOINTS.mobileRightbarSetEnabled, { on });
@@ -467,6 +476,11 @@ function PocketSettingsTab({ rpcCall, t }) {
                     customBtn('lan'),
                     status?.lanPinCustom ? h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('pinCustomHint')) : null,
                   ))),
+            // 远程设置开关（issue #58）：信任经代理客户端 → 设置页/模型管理远程可编辑
+            row(t('trustClients'),
+              Switch(status?.trustProxiedClients === true, () => setTrust(status?.trustProxiedClients !== true)),
+              h('div', { style: { ...styles.muted, marginTop: 6 } },
+                status?.trustProxiedClients === true ? t('trustClientsOn') : t('trustClientsOff'))),
             // 高级：手动选地址（默认收起）
             row(t('advAddress'),
               h('button', { style: { border: 'none', background: 'none', font: 'inherit', cursor: 'pointer', fontSize: 12, color: 'var(--dsw-alias-label-tertiary,#8b93a1)', padding: 0 }, onClick: () => setAdvOpen((v) => !v) },

@@ -28,7 +28,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// client/index.jsx
+// index.jsx
 var index_exports = {};
 __export(index_exports, {
   apply: () => apply,
@@ -39,7 +39,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 var import_react2 = require("react");
 
-// client/api.js
+// api.js
 var POCKET_RPC_CHANNEL = "/dsh-pocket";
 var MOBILE_RIGHTBAR_ATTRIBUTE = "data-dsh-pocket-mobile-rightbar";
 var MOBILE_RIGHTBAR_EVENT = "dsh-pocket:mobile-rightbar";
@@ -53,6 +53,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   restart: "pocket.restart",
   lanTokenRefresh: "token.lanRefresh",
   lanAuthSetEnabled: "lanAuth.setEnabled",
+  trustSetEnabled: "trust.setEnabled",
   lanSetOverride: "lan.setOverride",
   lanSetEnabled: "lan.setEnabled",
   mobileRightbarSetEnabled: "mobile.rightbar.setEnabled",
@@ -108,7 +109,7 @@ function redactStatus(s) {
   };
 }
 
-// client/mobile/MobileNavToggle.tsx
+// mobile/MobileNavToggle.tsx
 var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 function MobileNavToggle({ toggleSidebar, t }) {
   const toggleExplorer = () => {
@@ -143,11 +144,11 @@ function MobileNavToggle({ toggleSidebar, t }) {
   ));
 }
 
-// client/mobile/MobileNavOverlay.tsx
+// mobile/MobileNavOverlay.tsx
 var import_react = require("react");
 var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
 
-// client/mobile/nav-targets.mjs
+// mobile/nav-targets.mjs
 var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child';
 var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"]';
 var NAV_TARGETS = [
@@ -180,7 +181,7 @@ function isOverlayTap(target) {
   return target.closest(OVERLAY_SELECTOR) !== null;
 }
 
-// client/mobile/MobileNavOverlay.tsx
+// mobile/MobileNavOverlay.tsx
 var MOBILE_QUERY = "(max-width: 1023px)";
 function useMobile() {
   const [mobile, setMobile] = (0, import_react.useState)(() => window.matchMedia(MOBILE_QUERY).matches);
@@ -371,7 +372,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
   ));
 }
 
-// client/mobile/MobileDrawerFooter.tsx
+// mobile/MobileDrawerFooter.tsx
 var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
 function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t }) {
   const sessionId = useSessions((state) => state.current);
@@ -407,7 +408,7 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
   ));
 }
 
-// client/mobile/fileGuard.ts
+// mobile/fileGuard.ts
 var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
 var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
 var COPY_LABEL = "\u590D\u5236";
@@ -570,7 +571,7 @@ function startFileGuard(readFile) {
   };
 }
 
-// client/mobile/mobile.css.ts
+// mobile/mobile.css.ts
 var MOBILE_CSS = `
 /* ---------- base control styles (rendered at any width, hidden where unused) ---------- */
 
@@ -1561,7 +1562,7 @@ var MOBILE_CSS = `
 
 `;
 
-// client/mobile/locales.ts
+// mobile/locales.ts
 var NS = "mobileNav";
 var zh = {
   "open": "\u6253\u5F00\u76EE\u5F55",
@@ -1578,7 +1579,7 @@ var en = {
   "files": "Files"
 };
 
-// client/mobile/layout-mode.mjs
+// mobile/layout-mode.mjs
 function resolveLayout({ urlValue, stored, narrowMatch }) {
   const url = String(urlValue ?? "").trim();
   if (url === "desktop") return "desktop";
@@ -1602,7 +1603,7 @@ function persistLayoutFromUrl(urlValue) {
   }
 }
 
-// client/mobile/mobile-apply.tsx
+// mobile/mobile-apply.tsx
 function mobileApply(ctx) {
   const urlValue = new URL(window.location.href).searchParams.get("dsh-layout") ?? "";
   const narrowMQ = window.matchMedia("(max-width: 1023px)");
@@ -1879,7 +1880,7 @@ function mobileApply(ctx) {
   }, MobileDrawerFooter));
 }
 
-// client/pocket-locales.js
+// pocket-locales.js
 var NS2 = "pocket";
 var zh2 = {
   "section": "\u624B\u673A\u8BBF\u95EE",
@@ -1943,6 +1944,9 @@ var zh2 = {
   "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8\u201364 \u4F4D\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57",
   "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
+  "trustClients": "\u8FDC\u7A0B\u8BBE\u7F6E\uFF08\u63D2\u4EF6\u914D\u7F6E / \u6A21\u578B\u7BA1\u7406\uFF09",
+  "trustClientsOn": "\u2705 \u624B\u673A/\u8FDC\u7A0B\u9875\u9762\u53EF\u7F16\u8F91\u63D2\u4EF6\u914D\u7F6E\u4E0E\u6A21\u578B\u7BA1\u7406\u3002",
+  "trustClientsOff": "\u{1F512} \u8FDC\u7A0B\u9875\u9762\u53EA\u8BFB\uFF1A\u8BBE\u7F6E\u8BF7\u5728\u7535\u8111\u672C\u673A\uFF08127.0.0.1\uFF09\u4FEE\u6539\u3002",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "mobileRightbar": "\u624B\u673A\u7AEF\u53F3\u8FB9\u680F",
   "mobileRightbarHint": "\u663E\u793A\u539F\u751F\u53F3\u8FB9\u680F\u5165\u53E3\uFF1B\u666E\u901A\u624B\u673A\u53EF\u6309\u9700\u5173\u95ED\uFF0C\u6298\u53E0\u5C4F\u5C55\u5F00\u540E\u4F7F\u7528\u66F4\u65B9\u4FBF",
@@ -2041,6 +2045,9 @@ var en2 = {
   "pinInvalid": "PIN must be 8\u201364 characters (letters and digits only)",
   "pinCustomHint": "custom PINs are not rotated on tunnel start",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
+  "trustClients": "Remote settings (plugin config / models)",
+  "trustClientsOn": "\u2705 Phone/remote pages can edit plugin config and models.",
+  "trustClientsOff": "\u{1F512} Remote pages are read-only: change settings on the computer itself (127.0.0.1).",
   "lanStarting": "Proxy starting\u2026",
   "mobileRightbar": "Mobile right sidebar",
   "mobileRightbarHint": "Show the native right-sidebar entry; disable it for a compact phone header or keep it on for an unfolded display",
@@ -2078,7 +2085,7 @@ var en2 = {
   "feedback": "\u{1F64F} Questions? Open an issue on GitHub"
 };
 
-// client/index.jsx
+// index.jsx
 var name = "dsh-pocket";
 var inject = ["slots", "connection", "layout", "locale", "sessionLogDownload"];
 function fmt(t, key, vars) {
@@ -2305,6 +2312,13 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch {
     }
   };
+  const setTrust = async (on) => {
+    try {
+      const r = await call(POCKET_ENDPOINTS.trustSetEnabled, { on });
+      setStatus((s) => ({ ...s, trustProxiedClients: r.trustProxiedClients }));
+    } catch {
+    }
+  };
   const setMobileRightbar = async (on) => {
     try {
       const r = await call(POCKET_ENDPOINTS.mobileRightbarSetEnabled, { on });
@@ -2513,6 +2527,16 @@ function PocketSettingsTab({ rpcCall, t }) {
             (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: refreshLanPin }, t("refresh")),
             customBtn("lan"),
             status?.lanPinCustom ? (0, import_react2.createElement)("span", { style: { fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
+          )
+        ),
+        // 远程设置开关（issue #58）：信任经代理客户端 → 设置页/模型管理远程可编辑
+        row(
+          t("trustClients"),
+          Switch(status?.trustProxiedClients === true, () => setTrust(status?.trustProxiedClients !== true)),
+          (0, import_react2.createElement)(
+            "div",
+            { style: { ...styles.muted, marginTop: 6 } },
+            status?.trustProxiedClients === true ? t("trustClientsOn") : t("trustClientsOff")
           )
         ),
         // 高级：手动选地址（默认收起）
