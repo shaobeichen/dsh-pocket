@@ -58,6 +58,16 @@ test('再开 → true；settings.json 权限 0600', () => withHome(async () => {
   }
 }));
 
+test('手机端右边栏默认开启，可关闭并持久化', () => withHome(async () => {
+  const { mobileRightbarEnabled, setMobileRightbarEnabled, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(mobileRightbarEnabled(), true, '默认开启');
+  assert.equal(setMobileRightbarEnabled(false), false, '返回关闭状态');
+  assert.equal(mobileRightbarEnabled(), false, '关闭后立即生效');
+  const raw = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+  assert.equal(raw.mobileRightbarEnabled, false, 'settings.json 内容正确');
+  assert.equal(setMobileRightbarEnabled(true), true, '可再次开启');
+}));
+
 test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv4 拒绝', () => withHome(async () => {
   const { lanIpOverride, setLanIpOverride, settingsPath } = await import('../lib/settings.mjs');
   assert.equal(lanIpOverride(), '', '默认自动');
@@ -82,13 +92,13 @@ test('PIN 自定义标记（issue #33）：默认 false，设置/清除持久化
   assert.equal(pinCustom('lan'), false, '互不影响');
 }));
 
-test('setCustomPin / rotateAccessToken（issue #33）：8 位字母数字自定义 + 自定义后公网不轮换；非法输入抛错', () => withHome(async () => {
+test('setCustomPin / rotateAccessToken（issue #33）：8–64 位字母数字自定义 + 自定义后公网不轮换；非法输入抛错', () => withHome(async () => {
   const { setCustomPin, rotateAccessToken, getAccessToken } = await import('../lib/index.js');
   const { pinCustom } = await import('../lib/settings.mjs');
   // 非法输入
-  assert.throws(() => setCustomPin('public', '123'), /8 位英文字母或数字/, '太短拒绝');
-  assert.throws(() => setCustomPin('public', 'abc$ef12'), /8 位英文字母或数字/, '特殊符号拒绝');
-  assert.throws(() => setCustomPin('public', '123456789'), /8 位英文字母或数字/, '超长拒绝');
+  assert.throws(() => setCustomPin('public', '1234567'), /8–64 位英文字母或数字/, '少于 8 位拒绝');
+  assert.throws(() => setCustomPin('public', 'abc$ef12'), /8–64 位英文字母或数字/, '特殊符号拒绝');
+  assert.throws(() => setCustomPin('public', 'a'.repeat(65)), /8–64 位英文字母或数字/, '超过 64 位拒绝');
   assert.throws(() => setCustomPin('other', '12345678'), /未知/, '未知类型拒绝');
   // 合法自定义：公网（纯数字）
   assert.equal(setCustomPin('public', '88886666'), '88886666', '公网自定义成功（纯数字）');
@@ -100,6 +110,10 @@ test('setCustomPin / rotateAccessToken（issue #33）：8 位字母数字自定�
   // 合法自定义：公网（字母 + 数字混合，大小写均可）
   assert.equal(setCustomPin('public', 'aB3xY9k2'), 'aB3xY9k2', '公网自定义成功（字母数字混合）');
   assert.equal(getAccessToken(), 'aB3xY9k2', '混合密码已写入');
+  const longPin = 'Ab3'.repeat(21) + 'Z';
+  assert.equal(longPin.length, 64, '测试密码为 64 位');
+  assert.equal(setCustomPin('public', longPin), longPin, '64 位自定义密码成功');
+  assert.equal(getAccessToken(), longPin, '64 位密码已写入');
   // 合法自定义：局域网
   assert.equal(setCustomPin('lan', '77775555'), '77775555', '局域网自定义成功');
   assert.equal(pinCustom('lan'), true, '局域网标记自定义');
@@ -153,6 +167,7 @@ test('恢复出厂设置：清空全部设置 + 重设随机密码（开关回�
   // 先把设置搞成非默认：关掉开关、切命名隧道、填 Token/域名、自定义密码
   settings.setLanEnabled(false);
   settings.setLanAuthEnabled(false);
+  settings.setMobileRightbarEnabled(true);
   settings.setLanIpOverride('10.0.0.7');
   settings.setTunnelMode('named');
   settings.setTunnelToken('eyJhIjoiY2xvdWRmbGFyZS10b2tlbi1leGFtcGxlLXZhbHVlIn0');
@@ -170,6 +185,7 @@ test('恢复出厂设置：清空全部设置 + 重设随机密码（开关回�
   // 全部开关回到出厂默认
   assert.equal(settings.lanEnabled(), true, '局域网访问恢复默认开');
   assert.equal(settings.lanAuthEnabled(), true, '访问密码恢复默认开');
+  assert.equal(settings.mobileRightbarEnabled(), true, '手机端右边栏恢复默认开');
   assert.equal(settings.lanIpOverride(), '', '局域网地址恢复自动');
   assert.equal(settings.tunnelMode(), 'quick', '公网模式恢复随机域名');
   assert.equal(settings.tunnelToken(), '', 'Tunnel Token 已清空');
