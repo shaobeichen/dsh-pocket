@@ -10,6 +10,7 @@
 import { createElement as h, useEffect, useRef, useState } from 'react';
 
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT, redactStatus, compareVersions } from './api.js';
+import { installSettingsNavIcon } from './pocket-nav-icon.mjs';
 import { mobileApply } from './mobile/mobile-apply.tsx';
 import { NS as POCKET_NS, zh as POCKET_ZH, en as POCKET_EN } from './pocket-locales.js';
 
@@ -675,6 +676,10 @@ export function apply(ctx) {
   // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en），并绑定一个随当前 locale 切换的 t()。
   const translate = ctx.locale.bind(POCKET_NS);
   ctx.effect(() => ctx.locale.register(POCKET_NS, { zh: POCKET_ZH, en: POCKET_EN }), 'dsh-pocket: pocket locale dictionaries');
+
+  // 设置页导航一级入口的图标：外壳 navIcon() 只给内置 id 配图标、其余兜底齿轮，
+  // 而 settings.section 没有 icon 字段可传 —— 这里按本行文案认行后换成手机图标。
+  installSettingsNavIcon(ctx, () => translate('section'));
 
   // 设置一级入口（与 通用设置/模型/插件 同级，order 1 = 通用之后、最外层）
   ctx.slots.inject('settings.section', () =>
