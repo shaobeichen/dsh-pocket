@@ -191,6 +191,8 @@ npx @deepseek-ai/dsh web
 | `client/` | 设置页「手机访问」+ 移动端适配（dsh-web-mobile 移植） |
 | `bin/dsh-pocket.mjs` | CLI：局域网/公网模式，打印 URL + 二维码 |
 
+浏览器取消 HTTP 请求或断开连接时，代理会关闭对应的上游请求，即使上游尚未返回响应头。请求体正常发送完成不会取消仍在等待的响应。
+
 ## 🛠 开发
 
 ```sh

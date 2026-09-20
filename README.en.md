@@ -189,6 +189,8 @@ Such tools take over all traffic and often cut cloudflared's tunnel-edge connect
 | `client/` | "Phone access" settings tab + mobile adaptation (dsh-web-mobile port) |
 | `bin/dsh-pocket.mjs` | CLI: LAN/public modes, prints URL + QR |
 
+When the browser cancels an HTTP request or disconnects, the proxy closes the corresponding upstream request, including while response headers are pending. Completing a request body normally keeps its pending response alive.
+
 ## 🛠 Development
 
 ```sh
