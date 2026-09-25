@@ -1,6 +1,11 @@
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconFolderOpenOutline16, IconPanelLeftOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { NS } from './locales.ts'
+import { MobileIcon } from './MobileIcon.tsx'
+import { resolveMobileIcons } from './icon-compat.mjs'
+
+/** 宿主图标在加载时解析一次：不同 DSH 版本的导出名不同（见 icon-compat.mjs）。 */
+const icons = resolveMobileIcons(primitives)
 
 /** Full props for the session-header directory toggle. */
 export interface MobileNavToggleProps extends PropsRuntime<'conversation.session.header.actions'>, PropsLocale<typeof NS> {
@@ -36,7 +41,7 @@ export function MobileNavToggle({ toggleSidebar, t }: MobileNavToggleProps) {
         title={t('open')}
         onClick={() => toggleSidebar()}
       >
-        <IconPanelLeftOutline16 size={16} />
+        <MobileIcon icon={icons.panelLeft} name="panelLeft" size={16} />
       </button>
       <button
         type="button"
@@ -45,7 +50,7 @@ export function MobileNavToggle({ toggleSidebar, t }: MobileNavToggleProps) {
         title={t('files')}
         onClick={toggleExplorer}
       >
-        <IconFolderOpenOutline16 size={16} />
+        <MobileIcon icon={icons.folderOpen} name="folderOpen" size={16} />
       </button>
     </>
   )

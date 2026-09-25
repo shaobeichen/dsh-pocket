@@ -1,6 +1,11 @@
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconDownloadOutline16, IconPanelLeftOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { NS } from './locales.ts'
+import { MobileIcon } from './MobileIcon.tsx'
+import { resolveMobileIcons } from './icon-compat.mjs'
+
+/** 宿主图标在加载时解析一次：不同 DSH 版本的导出名不同（见 icon-compat.mjs）。 */
+const icons = resolveMobileIcons(primitives)
 
 /** Full props for the sidebar footer action entry. */
 export interface MobileDrawerFooterProps extends PropsRuntime<'sidebar.footer.action'>, PropsLocale<typeof NS> {
@@ -35,7 +40,7 @@ export function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSide
         title={t('files')}
         onClick={openExplorer}
       >
-        <IconPanelLeftOutline16 size={14} />
+        <MobileIcon icon={icons.panelLeft} name="panelLeft" size={14} />
         <span>{t('files')}</span>
       </button>
       <button
@@ -48,7 +53,7 @@ export function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSide
           if (sessionId !== undefined) downloadSessionLog(sessionId)
         }}
       >
-        <IconDownloadOutline16 size={14} />
+        <MobileIcon icon={icons.download} name="download" size={14} />
         <span>{t('sessionLog')}</span>
       </button>
     </div>

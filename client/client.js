@@ -10,9 +10,11 @@ window.__ModuleLoader__.load({
     // the bundle must bind React itself - otherwise every mobile component
     // crashes at render time with "ReferenceError: React is not defined".
     var React = require("react");
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name2 in all)
@@ -26,6 +28,14 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // client/index.jsx
@@ -109,7 +119,66 @@ function redactStatus(s) {
 }
 
 // client/mobile/MobileNavToggle.tsx
-var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+
+// client/mobile/icon-compat.mjs
+var MOBILE_ICON_CANDIDATES = {
+  panelLeft: [
+    "IconPanelLeftOutlineRegular",
+    "IconPanelLeftOutlineMedium",
+    "IconPanelLeftOutline16",
+    "IconPanelLeftOutline"
+  ],
+  download: [
+    "IconDownloadOutlineRegular",
+    "IconDownloadOutlineMedium",
+    "IconDownloadOutline16",
+    "IconDownloadOutline"
+  ],
+  folderOpen: [
+    "IconFolderOpenOutlineRegular",
+    "IconFolderOpenOutlineMedium",
+    "IconFolderOpenOutline16",
+    "IconFolderOpenOutline",
+    "IconFolderOpen"
+  ]
+};
+var MOBILE_ICON_FALLBACK = {
+  panelLeft: "\u2630",
+  download: "\u2913",
+  folderOpen: "\u25A4"
+};
+function isRenderableIcon(value) {
+  if (typeof value === "function") return true;
+  return typeof value === "object" && value !== null;
+}
+function pickIcon(registry, names) {
+  if (registry === null || typeof registry !== "object") return null;
+  for (const name2 of names) {
+    const candidate = registry[name2];
+    if (isRenderableIcon(candidate)) return candidate;
+  }
+  return null;
+}
+function resolveMobileIcons(registry) {
+  const resolved = {};
+  for (const [key, names] of Object.entries(MOBILE_ICON_CANDIDATES)) {
+    resolved[key] = pickIcon(registry, names);
+  }
+  return resolved;
+}
+
+// client/mobile/MobileIcon.tsx
+function MobileIcon({ icon, name: name2, size }) {
+  if (!isRenderableIcon(icon)) {
+    return /* @__PURE__ */ React.createElement("span", { "data-mobile-nav": "icon-fallback", "aria-hidden": "true", style: { fontSize: size, lineHeight: 1 } }, MOBILE_ICON_FALLBACK[name2]);
+  }
+  const Icon = icon;
+  return /* @__PURE__ */ React.createElement(Icon, { size });
+}
+
+// client/mobile/MobileNavToggle.tsx
+var icons = resolveMobileIcons(primitives);
 function MobileNavToggle({ toggleSidebar, t }) {
   const toggleExplorer = () => {
     const frame = document.querySelector('[data-mobile-nav="frame"]');
@@ -129,7 +198,7 @@ function MobileNavToggle({ toggleSidebar, t }) {
       title: t("open"),
       onClick: () => toggleSidebar()
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives.IconPanelLeftOutline16, { size: 16 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons.panelLeft, name: "panelLeft", size: 16 })
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -139,13 +208,13 @@ function MobileNavToggle({ toggleSidebar, t }) {
       title: t("files"),
       onClick: toggleExplorer
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives.IconFolderOpenOutline16, { size: 16 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons.folderOpen, name: "folderOpen", size: 16 })
   ));
 }
 
 // client/mobile/MobileNavOverlay.tsx
 var import_react = require("react");
-var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives2 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 
 // client/mobile/nav-targets.mjs
 var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child';
@@ -181,6 +250,7 @@ function isOverlayTap(target) {
 }
 
 // client/mobile/MobileNavOverlay.tsx
+var icons2 = resolveMobileIcons(primitives2);
 var MOBILE_QUERY = "(max-width: 1023px)";
 function useMobile() {
   const [mobile, setMobile] = (0, import_react.useState)(() => window.matchMedia(MOBILE_QUERY).matches);
@@ -367,12 +437,13 @@ function MobileNavOverlay({ toggleSidebar, t }) {
       title: t("open"),
       onClick: () => toggleSidebar()
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives2.IconPanelLeftOutline16, { size: 18 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons2.panelLeft, name: "panelLeft", size: 18 })
   ));
 }
 
 // client/mobile/MobileDrawerFooter.tsx
-var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives3 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+var icons3 = resolveMobileIcons(primitives3);
 function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t }) {
   const sessionId = useSessions((state) => state.current);
   const openExplorer = () => {
@@ -388,7 +459,7 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
       title: t("files"),
       onClick: openExplorer
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives3.IconPanelLeftOutline16, { size: 14 }),
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons3.panelLeft, name: "panelLeft", size: 14 }),
     /* @__PURE__ */ React.createElement("span", null, t("files"))
   ), /* @__PURE__ */ React.createElement(
     "button",
@@ -402,7 +473,7 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
         if (sessionId !== void 0) downloadSessionLog(sessionId);
       }
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives3.IconDownloadOutline16, { size: 14 }),
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons3.download, name: "download", size: 14 }),
     /* @__PURE__ */ React.createElement("span", null, t("sessionLog"))
   ));
 }
