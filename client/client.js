@@ -2361,7 +2361,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       maxLength: 128,
       value: customPin?.value ?? "",
       autoFocus: true,
-      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[\s\x00-\x1f\x7f]/g, ""), err: null })),
+      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[\s\p{Cc}]/gu, ""), err: null })),
       onKeyDown: (e) => {
         if (e.key === "Enter") saveCustomPin(which);
         if (e.key === "Escape") setCustomPin(null);

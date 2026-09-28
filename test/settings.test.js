@@ -100,6 +100,7 @@ test('setCustomPin / rotateAccessToken（issue #33）：8-128 位强密码自定
   assert.throws(() => setCustomPin('public', 'with space'), /8-128 位且不能包含空白或控制字符/, '空白字符拒绝');
   assert.throws(() => setCustomPin('public', 'a'.repeat(129)), /8-128 位且不能包含空白或控制字符/, '超过 128 位拒绝');
   assert.throws(() => setCustomPin('public', '密码\u0001安全2026'), /8-128 位且不能包含空白或控制字符/, '控制字符拒绝');
+  assert.throws(() => setCustomPin('public', '密码\u0085安全2026'), /8-128 位且不能包含空白或控制字符/, 'Unicode 控制字符拒绝');
   assert.throws(() => setCustomPin('other', '12345678'), /未知/, '未知类型拒绝');
   // 合法自定义：公网（纯数字）
   assert.equal(setCustomPin('public', '88886666'), '88886666', '公网自定义成功（纯数字）');

@@ -329,7 +329,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       maxLength: 128,
       value: customPin?.value ?? '',
       autoFocus: true,
-      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[\s\x00-\x1f\x7f]/g, ''), err: null })),
+      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/[\s\p{Cc}]/gu, ''), err: null })),
       onKeyDown: (e) => { if (e.key === 'Enter') saveCustomPin(which); if (e.key === 'Escape') setCustomPin(null); },
     }),
     h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 2 }, onClick: () => saveCustomPin(which) }, t('save')),
