@@ -598,7 +598,11 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   const proxy = await createPocketProxy({
     port: 0, host: '127.0.0.1',
     upstream: { host: '127.0.0.1', port: up.address().port },
-    auth: { getToken: () => TOKEN, isProtected: () => true },
+    auth: {
+      getToken: () => TOKEN,
+      getCredentialKind: (host) => String(host).includes('trycloudflare') ? 'ephemeral' : 'persistent',
+      isProtected: () => true,
+    },
   });
   const raw = (headers, method = 'GET', body, path = '/') => new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: proxy.port, path, method, headers }, (res) => {
@@ -618,6 +622,16 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   assert.equal(r1.status, 200);
   assert.ok(r1.body.includes('访问密码'), '返回登录页');
   assert.match(r1.body, /minlength="8" maxlength="64"/, '登录页允许输入 8–64 位自定义 PIN');
+  assert.match(r1.body, /id="current-password"[^>]+autocomplete="off"/, '短期轮换 PIN 不请求密码管理器保存');
+  assert.doesNotMatch(r1.body, /autocomplete="username"/, '短期轮换 PIN 不伪装成可保存的完整登录项');
+  assert.match(r1.body, /for="current-password"/, '登录页为密码输入框提供关联 label');
+  assert.match(r1.body, /type="button"[^>]+aria-controls="current-password"/, '显示密码按钮不会误提交表单且具备可访问语义');
+  assert.match(r1.body, /id="eye-icon"[^>]+aria-hidden="true"/, '显示密码按钮使用装饰性眼睛图标');
+  assert.match(r1.body, /id="eye-slash"/, '密码默认隐藏时眼睛带斜线');
+  assert.match(r1.body, /eyeSlash\.classList\.toggle\('is-hidden',show\)/, '切换时用 SVG 支持的 classList 改变斜线状态');
+  assert.match(r1.body, /padding:10px 50px;font-size:18px;line-height:24px;letter-spacing:6px;text-align:center;caret-color:/, '保留社区 PIN 字距与居中风格，同时为眼睛图标对称留位');
+  assert.match(r1.body, /setSelectionRange\(start,end\)/, '显示与隐藏切换时保留光标选区');
+  assert.match(r1.body, /pointerdown[^\n]+preventDefault/, '指针切换显示状态时不抢走输入框焦点');
 
   // 2) 公网 API 无 cookie → 401（非 HTML 路径）
   const r2 = await raw({ ...publicH, Accept: 'application/json' }, 'GET', undefined, '/api/hello');
@@ -643,6 +657,8 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   const r6 = await raw(lanH);
   assert.equal(r6.status, 200);
   assert.ok(r6.body.includes('访问密码'), '局域网也需要密码（登录页）');
+  assert.match(r6.body, /id="current-password"[^>]+autocomplete="current-password"/, '长期有效的 LAN PIN 允许密码管理器填充');
+  assert.match(r6.body, /id="pocket-username"[^>]+autocomplete="username"[^>]+value="dsh-pocket"/, '固定 PIN 提供稳定的隐式账号供密码管理器关联');
   // 局域网带 cookie → 放行
   const r6b = await raw({ ...lanH, Cookie: 'dsh_pocket_token=' + TOKEN });
   assert.equal(r6b.status, 200, '局域网带 cookie 放行');

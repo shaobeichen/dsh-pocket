@@ -5,8 +5,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { tokenForHost, isLanOverrideHost, rotateAccessToken } from '../lib/index.js';
-import { setLanIpOverride, setLanAuthEnabled, lanIpOverride } from '../lib/settings.mjs';
+import { tokenForHost, credentialKindForHost, isLanOverrideHost, rotateAccessToken } from '../lib/index.js';
+import { setLanIpOverride, setLanAuthEnabled, lanIpOverride, setPinCustom, setTunnelMode } from '../lib/settings.mjs';
 
 let tmpHome = null;
 let savedHome = null;
@@ -78,4 +78,23 @@ test('issue #90：访问 PIN 必须用 CSPRNG 生成，不得回退到 Math.rand
   }
   // 200 次采样在 9×10⁷ 空间里几乎不可能撞车；若大量重复说明随机源退化了。
   assert.ok(seen.size >= 199, `200 次采样应基本互不相同，实际 ${seen.size} 个不同值`);
+}));
+
+test('登录页凭据语义：LAN、Named 和自定义公网 PIN 可保存，Quick 自动 PIN 不保存', () => withTempHome(async () => {
+  setLanIpOverride('');
+  setTunnelMode('quick');
+  setPinCustom('public', false);
+
+  assert.equal(credentialKindForHost('192.168.1.5:3081'), 'persistent', 'LAN 自动 PIN 持久到手动刷新');
+  assert.equal(credentialKindForHost('abc.trycloudflare.com'), 'ephemeral', 'Quick 自动 PIN 每次开隧道轮换');
+
+  setPinCustom('public', true);
+  assert.equal(credentialKindForHost('abc.trycloudflare.com'), 'persistent', 'Quick 自定义 PIN 长期复用');
+
+  setPinCustom('public', false);
+  setTunnelMode('named');
+  assert.equal(credentialKindForHost('pocket.example.com'), 'persistent', 'Named Tunnel PIN 不自动轮换');
+
+  setLanIpOverride('203.0.113.5');
+  assert.equal(credentialKindForHost('203.0.113.5:3081'), 'persistent', '手动 LAN 地址覆盖仍按 LAN 持久 PIN 处理');
 }));
