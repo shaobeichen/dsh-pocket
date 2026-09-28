@@ -617,7 +617,7 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   const r1 = await raw(publicH);
   assert.equal(r1.status, 200);
   assert.ok(r1.body.includes('访问密码'), '返回登录页');
-  assert.match(r1.body, /minlength="8" maxlength="64"/, '登录页允许输入 8–64 位自定义 PIN');
+  assert.match(r1.body, /maxlength="128"/, '登录页允许输入最长 128 位自定义 PIN');
 
   // 2) 公网 API 无 cookie → 401（非 HTML 路径）
   const r2 = await raw({ ...publicH, Accept: 'application/json' }, 'GET', undefined, '/api/hello');
