@@ -393,9 +393,13 @@ test('会话指纹已移除（2.10.0）：页面与登录页不再注入指纹/a
 });
 
 test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async () => {
+  // 注意（issue #150）：代理现在对 HTML 导航请求带 accept-encoding: identity，
+  // 正常 dsh web 会因此回未压缩文档。本用例覆盖的是**上游忽略 identity** 的兜底路径：
+  // 上游照旧回 gzip 时，代理必须原样透传、绝不注入，否则会损坏压缩流。
   const zlib = await import('node:zlib');
   const http = await import('node:http');
   const up = createServer((req, res) => {
+    // 无条件 gzip：模拟不认 identity 的上游
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-encoding': 'gzip' });
     res.end(zlib.gzipSync('<!doctype html><head></head><body>compressed-page</body>'));
   });
@@ -416,6 +420,95 @@ test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async
     assert.ok(raw.body[0] === 0x1f && raw.body[1] === 0x8b, '原始字节仍是 gzip（未做文本注入）');
     assert.ok(!raw.body.toString('utf8').includes('randomUUID'), '压缩流未被注入破坏');
     assert.ok(zlib.gunzipSync(raw.body).toString('utf8').includes('compressed-page'), '解压后内容完整');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
+test('issue #150：HTML 导航请求向上游要 identity，注入对真实浏览器生效', async () => {
+  // 真实浏览器导航必然带 Accept-Encoding，dsh web 于是 gzip 压缩 HTML。
+  // 本用例的假上游**尊重 Accept-Encoding**（像 dsh web 一样），用于证明代理现在
+  // 会主动要 identity，从而拿到未压缩文档并完成注入。
+  const zlib = await import('node:zlib');
+  const http = await import('node:http');
+  const seenAcceptEncoding = [];
+  const up = createServer((req, res) => {
+    seenAcceptEncoding.push(req.headers['accept-encoding'] ?? '(none)');
+    const ae = String(req.headers['accept-encoding'] ?? '');
+    const html = Buffer.from('<!doctype html><head><title>x</title></head><body>app</body>');
+    if (/\bgzip\b/.test(ae)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-encoding': 'gzip' });
+      res.end(zlib.gzipSync(html));
+    } else {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': String(html.length) });
+      res.end(html);
+    }
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port } });
+  try {
+    // 原始 http.request：模拟真实浏览器导航（带 Accept-Encoding + 移动端 UA），
+    // 用原始字节断言，避免 undici 自动解压干扰。
+    const raw = await new Promise((resolve, reject) => {
+      const req = http.request({
+        host: '127.0.0.1', port: proxy.port, path: '/',
+        headers: {
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'accept-encoding': 'gzip, deflate, br',
+          'user-agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/115 Mobile Safari/537.36',
+        },
+      }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
+    assert.equal(seenAcceptEncoding.at(-1), 'identity', 'HTML 导航向上游要 identity');
+    assert.equal(raw.headers['content-encoding'], undefined, '拿到未压缩文档，无 content-encoding');
+    const html = raw.body.toString('utf8');
+    assert.ok(html.includes('data-dsh-pocket-polyfill="1"'), 'polyfill 已注入真实浏览器导航');
+    assert.ok(html.includes('self.AbortSignal.any'), 'AbortSignal.any 兼容代码随文档下发');
+    assert.ok(html.includes('data-dsh-pocket-transport-shim="1"'), 'transport shim 已注入');
+    assert.ok(html.includes('app'), '原始页面内容完整');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
+test('issue #150：上游忽略 identity 时，压缩流仍原样透传（不损坏）', async () => {
+  // 与上一条互补：上游不认 identity（照旧回 gzip）时，代理必须退回原有
+  // 「压缩流原样透传、不注入」的行为，绝不能破坏压缩字节。
+  const zlib = await import('node:zlib');
+  const http = await import('node:http');
+  const up = createServer((req, res) => {
+    // 无论 Accept-Encoding 是什么，一律返回 gzip（模拟忽略 identity 的上游）
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-encoding': 'gzip' });
+    res.end(zlib.gzipSync('<!doctype html><head></head><body>always-gzip</body>'));
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port } });
+  try {
+    const raw = await new Promise((resolve, reject) => {
+      const req = http.request({
+        host: '127.0.0.1', port: proxy.port, path: '/',
+        headers: { accept: 'text/html', 'accept-encoding': 'gzip, deflate, br' },
+      }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    assert.equal(raw.headers['content-encoding'], 'gzip', '压缩头原样透传');
+    assert.ok(raw.body[0] === 0x1f && raw.body[1] === 0x8b, 'gzip 魔数未被破坏');
+    assert.ok(!raw.body.toString('utf8').includes('randomUUID'), '未对压缩流做文本注入');
+    assert.ok(zlib.gunzipSync(raw.body).toString('utf8').includes('always-gzip'), '解压后内容完整');
   } finally {
     await proxy.close();
     await new Promise((r) => up.close(r));
