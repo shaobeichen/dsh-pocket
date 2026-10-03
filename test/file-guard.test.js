@@ -34,10 +34,25 @@ test('源码含提示文案与「添加工作区」隐藏文案（产物会被 e
   assert.ok(src.includes('添加工作区') && src.includes('Add workspace'), '必须覆盖中英双语的添加工作区入口');
 });
 
+test('fileGuard 的兜底晚于应用：冒泡阶段注册 + defaultPrevented 早退（issue #152）', () => {
+  // 注册必须是冒泡阶段（第三参数缺省/false）；捕获阶段会把 dsh-web 自己的预览点击一起吞掉。
+  assert.ok(
+    /document\.addEventListener\('click', onClick\)/.test(src),
+    '必须注册在冒泡阶段：document.addEventListener("click", onClick)',
+  );
+  assert.ok(
+    !/addEventListener\('click', onClick, true\)/.test(src),
+    '不能再注册在捕获阶段',
+  );
+  assert.ok(src.includes('event.defaultPrevented'), '应用已处理（defaultPrevented）时必须让路');
+  assert.ok(!src.includes('stopImmediatePropagation'), '不再吞事件，让应用自己的处理器先跑');
+});
+
 test('打包产物含守卫 + 复制按钮结构标记', () => {
   // esbuild 会把单引号规范成双引号、中文转义成 \\uXXXX，故只查 ASCII 结构标记。
   assert.ok(/closest\(\s*["']button, a["']\s*\)/.test(bundle), '产物必须保留 closest("button, a") 检测——先跑 node client/build.mjs');
-  assert.ok(bundle.includes('stopImmediatePropagation'), '产物必须能在捕获阶段阻止桌面 open');
+  assert.ok(bundle.includes('defaultPrevented'), '产物必须保留 defaultPrevented 早退');
+  assert.ok(!bundle.includes('stopImmediatePropagation'), '产物不应再吞掉应用自己的点击处理');
   assert.ok(bundle.includes('file-guard-toast'), '产物必须含 toast 标记');
   assert.ok(bundle.includes('add-workspace'), '产物必须含隐藏添加工作区的逻辑');
   // 复制按钮：注入标记 + 经 RPC 读文件（data-mobile-nav-copy 标记已处理链接，避免重复注入）

@@ -1,13 +1,17 @@
-// 移动端文件守卫（issue #17）：dsh-web 在手机上点「文件链接」会触发桌面端
+// 移动端文件守卫（issue #17，issue #152 修正）：dsh-web 在手机上点「文件链接」会触发桌面端
 // workspaces.openPath(open <path>)，既打不开（文件在电脑上），又会抛
 // "path open failed". 这里做两件事：
-//   1) 捕获阶段拦截这类激活（点击 / 键盘），改为弹一个提示；
+//   1) 应用自己没处理这类激活时（点击 / 键盘）弹一个提示兜底；
 //   2) 在每个文件链接旁注入一个「复制」按钮，点它经主机 RPC 读文件正文再写剪贴板。
 // 另外隐藏「添加工作区」入口（手机上配工作区无意义）。
 // 移植自 dsh-web-mobile（MIT）。
 //
 // 识别方式：不依赖 dsh-web 的 hash 类名（每次构建都变），只认「文本像文件路径的
 // <button>/<a>」——文件链接按钮的文案就是路径（如 lib/proxy.mjs / /Users/.../x.ts）。
+//
+// 兜底必须晚于应用：dsh-web 是「预览优先」（dsh-context 的文件行先 onPreview、再 onOpen；
+// dsh-client-ui-reference 的 openReference 就是 sidebarRight.openResource），
+// 它处理完了才轮到我们。所以监听器注册在冒泡阶段 + defaultPrevented 早退。
 
 /** 手机上点击文件时弹出的提示。 */
 const GUARD_MSG = '手机上无法直接打开电脑上的文件'
@@ -100,19 +104,23 @@ export function startFileGuard(
     }, 2600)
   }
 
-  // 捕获阶段拦截文件链接的激活。按钮的键盘激活（Enter/Space）会派发 click，
-  // 因此只拦 click 即可同时覆盖鼠标与键盘，避免重复处理。
+  // 兜底拦截，注册在**冒泡**阶段：让 dsh-web 自己的处理器先跑。
+  // 应用能处理时会 preventDefault（如裸 <a href> 的导航）或 stopPropagation
+  // （如 dsh-context 文件行的 ev.stopPropagation()），事件到不了这里；
+  // 只有应用没管、真的会去调桌面端 open 的时候，才弹提示兜底。
+  // 反过来注册在捕获阶段会连应用的预览一起吞掉（issue #152）。
+  // 按钮的键盘激活（Enter/Space）会派发 click，因此只拦 click 即可同时覆盖鼠标与键盘。
   const onClick = (event: MouseEvent): void => {
+    if (event.defaultPrevented) return
     const target = event.target as HTMLElement | null
     if (target === null) return
     const el = target.closest('button, a') as HTMLElement | null
     if (el === null) return
     if (!looksLikeFilePath(el.textContent)) return
     event.preventDefault()
-    event.stopImmediatePropagation()
     showToast(GUARD_MSG)
   }
-  document.addEventListener('click', onClick, true)
+  document.addEventListener('click', onClick)
 
   // 在文件链接旁注入「复制」按钮：点它经主机 RPC 读文件正文再写剪贴板。
   // 用 data-mobile-nav-copy 标记已处理的链接，避免重复注入；React 重渲染会
@@ -191,7 +199,7 @@ export function startFileGuard(
   const disconnectWs = hideWsEntries()
 
   return () => {
-    document.removeEventListener('click', onClick, true)
+    document.removeEventListener('click', onClick)
     copyObserver.disconnect()
     disconnectWs()
     if (toastTimer !== null) window.clearTimeout(toastTimer)

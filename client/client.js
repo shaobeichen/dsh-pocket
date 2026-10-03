@@ -482,16 +482,16 @@ function startFileGuard(readFile) {
     }, 2600);
   };
   const onClick = (event) => {
+    if (event.defaultPrevented) return;
     const target = event.target;
     if (target === null) return;
     const el = target.closest("button, a");
     if (el === null) return;
     if (!looksLikeFilePath(el.textContent)) return;
     event.preventDefault();
-    event.stopImmediatePropagation();
     showToast(GUARD_MSG);
   };
-  document.addEventListener("click", onClick, true);
+  document.addEventListener("click", onClick);
   const injectCopyButtons = () => {
     const links = document.querySelectorAll("button, a");
     links.forEach((el) => {
@@ -562,7 +562,7 @@ function startFileGuard(readFile) {
   };
   const disconnectWs = hideWsEntries();
   return () => {
-    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("click", onClick);
     copyObserver.disconnect();
     disconnectWs();
     if (toastTimer !== null) window.clearTimeout(toastTimer);
