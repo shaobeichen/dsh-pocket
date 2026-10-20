@@ -1,7 +1,7 @@
 // 局域网访问密码开关（issue #24）：默认开启、持久化、可关可开
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -78,6 +78,17 @@ test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv
   assert.throws(() => setLanIpOverride('999.1.1.1'), /IPv4/, '非法地址拒绝');
   assert.equal(setLanIpOverride(''), '', '清除覆盖');
   assert.equal(lanIpOverride(), '', '恢复自动');
+}));
+
+test('网卡黑名单：默认空，blacklist 字段按字符串数组读取（每项 = 网卡名或 IP）', () => withHome(async (home) => {
+  const { lanBlacklist } = await import('../lib/settings.mjs');
+  const file = join(home, 'dsh-pocket', 'settings.json');
+  assert.deepEqual(lanBlacklist(), [], '默认空');
+  mkdirSync(join(home, 'dsh-pocket'), { recursive: true });
+  writeFileSync(file, JSON.stringify({ blacklist: [' 以太网 8 ', '192.168.56.1', '', null] }), 'utf8');
+  assert.deepEqual(lanBlacklist(), ['以太网 8', '192.168.56.1'], 'trim 并过滤空项');
+  writeFileSync(file, JSON.stringify({ blacklist: 'not-an-array' }), 'utf8');
+  assert.deepEqual(lanBlacklist(), [], '非数组视为空');
 }));
 
 test('PIN 自定义标记（issue #33）：默认 false，设置/清除持久化，未知类型 false', () => withHome(async () => {
