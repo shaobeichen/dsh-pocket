@@ -83,6 +83,42 @@ export function mobileApply(ctx): void {
     }
   }, 'dsh-mobile-nav: styles')
 
+  // ds-bot compatibility, part 2 (see mobile.css.ts): ds-bot's own offset
+  // math is meaningless under the pocket drawer, so the stylesheet zeroes it
+  // and pads by the live bot-column width. This effect keeps --dshp-bt-clear
+  // in sync with that width (open / rail / drawer / hidden all animate it).
+  ctx.effect(() => {
+    const root = document.documentElement
+    let ro: ResizeObserver | null = null
+    const apply = (): void => {
+      const col = document.querySelector('.bt-leftcol')
+      if (col === null) {
+        root.style.removeProperty('--dshp-bt-clear')
+        if (ro !== null) {
+          ro.disconnect()
+          ro = null
+        }
+        return
+      }
+      if (ro === null) {
+        ro = new ResizeObserver(apply)
+        ro.observe(col)
+      }
+      const width = Math.round(col.getBoundingClientRect().width)
+      root.style.setProperty('--dshp-bt-clear', width + 'px')
+    }
+    apply()
+    const mo = new MutationObserver(apply)
+    mo.observe(document.body, { childList: true, subtree: true })
+    window.addEventListener('resize', apply)
+    return () => {
+      mo.disconnect()
+      window.removeEventListener('resize', apply)
+      if (ro !== null) ro.disconnect()
+      root.style.removeProperty('--dshp-bt-clear')
+    }
+  }, 'dsh-mobile-nav: ds-bot column offset')
+
   // Phone chrome: KEEP the system status bar (no fullscreen) and make it
   // blend into the page. On narrow screens:
   // - The viewport meta gains viewport-fit=cover, so env(safe-area-inset-top)
