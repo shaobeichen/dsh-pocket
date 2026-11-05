@@ -180,17 +180,18 @@ export const MOBILE_CSS = `
      containing block is the frame's padding box, i.e. still the frame top). */
   [data-mobile-nav="frame"] {
     position: relative !important;
-    grid-template-columns: minmax(0, 1fr) 0 0 !important;
+    grid-template-columns: 0 minmax(0, 1fr) 0 !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
-  /* 主内容列（第 2 个网格子元素）在官方样式里有显式 grid-column: 2——
-     网格被压缩成 [1fr, 0, 0] 后它会落在 0px 的第 2 轨，整个主界面被挤出
-     视口（只剩背景图）。必须显式把它拉回第 1 轨（issue #5）。
-     第 3 列（details）保持 0 轨即可，无需处理。 */
-  [data-mobile-nav="frame"] > :nth-child(2) {
-    grid-column: 1 !important;
-    grid-row: 1 !important;
+  /* 主内容列：官方样式给它显式 grid-column: 2。
+     DSH 0.2.2 起 AppFrame 多了几个子节点（drawerMask / bottomRow / overlayLayer /
+     leadingSeat），":nth-child(2)" 就不再指向它了——那条规则会落到侧栏上，主列则
+     留在被压成 0px 的第 2 轨，整个会话正文被排到视口之外（DOM 存在、画面空白，
+     issue #5 复现）。改为：把第 2 轨给成整宽、主列留在原地，并按 CSS Modules 的
+     类名后缀定位，不再依赖兄弟节点顺序。
+     第 3 列（rightbar）保持 0 轨即可，无需处理。 */
+  [data-mobile-nav="frame"] > [class*="_centerCol"] {
     min-width: 0 !important;
   }
 
@@ -217,7 +218,8 @@ export const MOBILE_CSS = `
      #67: that mask sat on top of the 600 drawer and ate every tap). Still
      far under the fixed-position banners/toasts (z 9999) that float at the
      viewport level. */
-  [data-mobile-nav="frame"] > :first-child {
+  [data-mobile-nav="frame"] > :first-child,
+  [data-mobile-nav="frame"] > [class*="_sidebarCol"] {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
@@ -247,7 +249,8 @@ export const MOBILE_CSS = `
      overflow:hidden drawer to scrollLeft=102, and every static child (plus the
      fixed overlay) shifts 102px off-screen. With transform:none the overlay is
      viewport-anchored: it dims the full screen and the sheet sits at left:8. */
-  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child {
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child,
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > [class*="_sidebarCol"] {
     transform: none !important;
   }
 

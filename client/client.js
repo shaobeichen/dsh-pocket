@@ -38,7 +38,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// client/index.jsx
+// _pocket-diag/upstream-dsh-pocket/client/index.jsx
 var index_exports = {};
 __export(index_exports, {
   apply: () => apply,
@@ -49,7 +49,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 var import_react2 = require("react");
 
-// client/api.js
+// _pocket-diag/upstream-dsh-pocket/client/api.js
 var POCKET_RPC_CHANNEL = "/dsh-pocket";
 var MOBILE_RIGHTBAR_ATTRIBUTE = "data-dsh-pocket-mobile-rightbar";
 var MOBILE_RIGHTBAR_EVENT = "dsh-pocket:mobile-rightbar";
@@ -118,10 +118,10 @@ function redactStatus(s) {
   };
 }
 
-// client/mobile/MobileNavToggle.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileNavToggle.tsx
 var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 
-// client/mobile/icon-compat.mjs
+// _pocket-diag/upstream-dsh-pocket/client/mobile/icon-compat.mjs
 var MOBILE_ICON_CANDIDATES = {
   panelLeft: [
     "IconPanelLeftOutlineRegular",
@@ -168,7 +168,7 @@ function resolveMobileIcons(registry) {
   return resolved;
 }
 
-// client/mobile/MobileIcon.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileIcon.tsx
 function MobileIcon({ icon, name: name2, size }) {
   if (!isRenderableIcon(icon)) {
     return /* @__PURE__ */ React.createElement("span", { "data-mobile-nav": "icon-fallback", "aria-hidden": "true", style: { fontSize: size, lineHeight: 1 } }, MOBILE_ICON_FALLBACK[name2]);
@@ -177,7 +177,7 @@ function MobileIcon({ icon, name: name2, size }) {
   return /* @__PURE__ */ React.createElement(Icon, { size });
 }
 
-// client/mobile/MobileNavToggle.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileNavToggle.tsx
 var icons = resolveMobileIcons(primitives);
 function MobileNavToggle({ toggleSidebar, t }) {
   const toggleExplorer = () => {
@@ -212,11 +212,11 @@ function MobileNavToggle({ toggleSidebar, t }) {
   ));
 }
 
-// client/mobile/MobileNavOverlay.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileNavOverlay.tsx
 var import_react = require("react");
 var primitives2 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 
-// client/mobile/nav-targets.mjs
+// _pocket-diag/upstream-dsh-pocket/client/mobile/nav-targets.mjs
 var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child';
 var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"]';
 var NAV_TARGETS = [
@@ -249,7 +249,7 @@ function isOverlayTap(target) {
   return target.closest(OVERLAY_SELECTOR) !== null;
 }
 
-// client/mobile/MobileNavOverlay.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileNavOverlay.tsx
 var icons2 = resolveMobileIcons(primitives2);
 var MOBILE_QUERY = "(max-width: 1023px)";
 function useMobile() {
@@ -441,7 +441,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
   ));
 }
 
-// client/mobile/MobileDrawerFooter.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/MobileDrawerFooter.tsx
 var primitives3 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 var icons3 = resolveMobileIcons(primitives3);
 function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t }) {
@@ -478,7 +478,7 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
   ));
 }
 
-// client/mobile/fileGuard.ts
+// _pocket-diag/upstream-dsh-pocket/client/mobile/fileGuard.ts
 var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
 var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
 var COPY_LABEL = "\u590D\u5236";
@@ -641,7 +641,7 @@ function startFileGuard(readFile) {
   };
 }
 
-// client/mobile/mobile.css.ts
+// _pocket-diag/upstream-dsh-pocket/client/mobile/mobile.css.ts
 var MOBILE_CSS = `
 /* ---------- base control styles (rendered at any width, hidden where unused) ---------- */
 
@@ -809,17 +809,18 @@ var MOBILE_CSS = `
      containing block is the frame's padding box, i.e. still the frame top). */
   [data-mobile-nav="frame"] {
     position: relative !important;
-    grid-template-columns: minmax(0, 1fr) 0 0 !important;
+    grid-template-columns: 0 minmax(0, 1fr) 0 !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
-  /* \u4E3B\u5185\u5BB9\u5217\uFF08\u7B2C 2 \u4E2A\u7F51\u683C\u5B50\u5143\u7D20\uFF09\u5728\u5B98\u65B9\u6837\u5F0F\u91CC\u6709\u663E\u5F0F grid-column: 2\u2014\u2014
-     \u7F51\u683C\u88AB\u538B\u7F29\u6210 [1fr, 0, 0] \u540E\u5B83\u4F1A\u843D\u5728 0px \u7684\u7B2C 2 \u8F68\uFF0C\u6574\u4E2A\u4E3B\u754C\u9762\u88AB\u6324\u51FA
-     \u89C6\u53E3\uFF08\u53EA\u5269\u80CC\u666F\u56FE\uFF09\u3002\u5FC5\u987B\u663E\u5F0F\u628A\u5B83\u62C9\u56DE\u7B2C 1 \u8F68\uFF08issue #5\uFF09\u3002
-     \u7B2C 3 \u5217\uFF08details\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002 */
-  [data-mobile-nav="frame"] > :nth-child(2) {
-    grid-column: 1 !important;
-    grid-row: 1 !important;
+  /* \u4E3B\u5185\u5BB9\u5217\uFF1A\u5B98\u65B9\u6837\u5F0F\u7ED9\u5B83\u663E\u5F0F grid-column: 2\u3002
+     DSH 0.2.2 \u8D77 AppFrame \u591A\u4E86\u51E0\u4E2A\u5B50\u8282\u70B9\uFF08drawerMask / bottomRow / overlayLayer /
+     leadingSeat\uFF09\uFF0C":nth-child(2)" \u5C31\u4E0D\u518D\u6307\u5411\u5B83\u4E86\u2014\u2014\u90A3\u6761\u89C4\u5219\u4F1A\u843D\u5230\u4FA7\u680F\u4E0A\uFF0C\u4E3B\u5217\u5219
+     \u7559\u5728\u88AB\u538B\u6210 0px \u7684\u7B2C 2 \u8F68\uFF0C\u6574\u4E2A\u4F1A\u8BDD\u6B63\u6587\u88AB\u6392\u5230\u89C6\u53E3\u4E4B\u5916\uFF08DOM \u5B58\u5728\u3001\u753B\u9762\u7A7A\u767D\uFF0C
+     issue #5 \u590D\u73B0\uFF09\u3002\u6539\u4E3A\uFF1A\u628A\u7B2C 2 \u8F68\u7ED9\u6210\u6574\u5BBD\u3001\u4E3B\u5217\u7559\u5728\u539F\u5730\uFF0C\u5E76\u6309 CSS Modules \u7684
+     \u7C7B\u540D\u540E\u7F00\u5B9A\u4F4D\uFF0C\u4E0D\u518D\u4F9D\u8D56\u5144\u5F1F\u8282\u70B9\u987A\u5E8F\u3002
+     \u7B2C 3 \u5217\uFF08rightbar\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002 */
+  [data-mobile-nav="frame"] > [class*="_centerCol"] {
     min-width: 0 !important;
   }
 
@@ -846,7 +847,8 @@ var MOBILE_CSS = `
      #67: that mask sat on top of the 600 drawer and ate every tap). Still
      far under the fixed-position banners/toasts (z 9999) that float at the
      viewport level. */
-  [data-mobile-nav="frame"] > :first-child {
+  [data-mobile-nav="frame"] > :first-child,
+  [data-mobile-nav="frame"] > [class*="_sidebarCol"] {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
@@ -876,7 +878,8 @@ var MOBILE_CSS = `
      overflow:hidden drawer to scrollLeft=102, and every static child (plus the
      fixed overlay) shifts 102px off-screen. With transform:none the overlay is
      viewport-anchored: it dims the full screen and the sheet sits at left:8. */
-  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child {
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child,
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > [class*="_sidebarCol"] {
     transform: none !important;
   }
 
@@ -1659,7 +1662,7 @@ var MOBILE_CSS = `
 
 `;
 
-// client/mobile/locales.ts
+// _pocket-diag/upstream-dsh-pocket/client/mobile/locales.ts
 var NS = "pocketMobileNav";
 var zh = {
   "open": "\u6253\u5F00\u76EE\u5F55",
@@ -1676,7 +1679,7 @@ var en = {
   "files": "Files"
 };
 
-// client/mobile/layout-mode.mjs
+// _pocket-diag/upstream-dsh-pocket/client/mobile/layout-mode.mjs
 function resolveLayout({ urlValue, stored, narrowMatch }) {
   const url = String(urlValue ?? "").trim();
   if (url === "desktop") return "desktop";
@@ -1700,7 +1703,7 @@ function persistLayoutFromUrl(urlValue) {
   }
 }
 
-// client/mobile/mobile-apply.tsx
+// _pocket-diag/upstream-dsh-pocket/client/mobile/mobile-apply.tsx
 function mobileApply(ctx) {
   const urlValue = new URL(window.location.href).searchParams.get("dsh-layout") ?? "";
   const narrowMQ = window.matchMedia("(max-width: 1023px)");
@@ -1977,7 +1980,7 @@ function mobileApply(ctx) {
   }, MobileDrawerFooter));
 }
 
-// client/pocket-locales.js
+// _pocket-diag/upstream-dsh-pocket/client/pocket-locales.js
 var NS2 = "pocket";
 var zh2 = {
   "section": "\u624B\u673A\u8BBF\u95EE",
@@ -2176,7 +2179,7 @@ var en2 = {
   "feedback": "\u{1F64F} Questions? Open an issue on GitHub"
 };
 
-// client/index.jsx
+// _pocket-diag/upstream-dsh-pocket/client/index.jsx
 var name = "dsh-pocket";
 var inject = ["slots", "connection", "layout", "locale", "sessionLogDownload"];
 function fmt(t, key, vars) {
