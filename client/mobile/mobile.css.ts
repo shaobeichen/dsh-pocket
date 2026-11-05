@@ -178,20 +178,42 @@ export const MOBILE_CSS = `
      clears the status bar / notch for every in-flow surface (session header,
      messages, composer); the absolutely-positioned drawer is unaffected (its
      containing block is the frame's padding box, i.e. still the frame top). */
-  [data-mobile-nav="frame"] {
+  [data-mobile-nav="frame"],
+  /* ds-bot compatibility, part 1: ds-bot claims the frame grid with
+     [class*="_frame"][data-sidebar-collapsed][data-rightbar-collapsed]:has(> [class*="_sidebarCol"])
+     { grid-template-columns: 0px minmax(0,1fr) 0px !important } (specificity
+     0,4,0), which beats the rule above at 0,1,0 and pushes the center column
+     (relocated to track 1 below) into its 0px first track — the whole mobile
+     UI goes blank. Mirror its conditions one level up (0,4,1) so this
+     template wins deterministically while ds-bot is active. */
+  html [data-mobile-nav="frame"][data-sidebar-collapsed][data-rightbar-collapsed]:has(> [class*="_sidebarCol"]) {
     position: relative !important;
     grid-template-columns: minmax(0, 1fr) 0 0 !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
   /* 主内容列（第 2 个网格子元素）在官方样式里有显式 grid-column: 2——
-     网格被压缩成 [1fr, 0, 0] 后它会落在 0px 的第 2 轨，整个主界面被挤出
-     视口（只剩背景图）。必须显式把它拉回第 1 轨（issue #5）。
-     第 3 列（details）保持 0 轨即可，无需处理。 */
+      网格被压缩成 [1fr, 0, 0] 后它会落在 0px 的第 2 轨，整个主界面被挤出
+      视口（只剩背景图）。必须显式把它拉回第 1 轨（issue #5）。
+      第 3 列（details）保持 0 轨即可，无需处理。 */
   [data-mobile-nav="frame"] > :nth-child(2) {
     grid-column: 1 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
+  }
+
+  /* ds-bot compatibility, part 2: ds-bot offsets the center column by
+     (bot column width − measured shell sidebar track) to sit beside its fixed
+     bot column (.bt-leftcol). In the pocket mobile layout the shell sidebar is
+     the off-canvas drawer, so the measured track is meaningless (the offset
+     evaluates to zero) and the bot column simply covers the chat. Take over
+     the offset instead: zero ds-bot's margin and pad by the live bot-column
+     width, which the mobile-apply observer keeps in --dshp-bt-clear. Padding
+     composes with nothing else, so the chat always starts exactly at the bot
+     column's right edge, whatever shape ds-bot is in. */
+  html:has(.bt-leftcol) [data-mobile-nav="frame"] > [class*="_centerCol"] {
+    margin-left: 0 !important;
+    padding-left: var(--dshp-bt-clear, 0px) !important;
   }
 
   /* The sidebar column (first grid child) becomes a left drawer. The drawer
@@ -583,7 +605,7 @@ export const MOBILE_CSS = `
          spacing and the kanban needs scrollable columns. */
 
   /* Touch devices: the drag handles are useless — the floating expand
-     button is the opener. */
+      button is the opener. */
   .aionui-explorer-handle,
   .aionui-preview-handle {
     display: none !important;
