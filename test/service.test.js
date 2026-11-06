@@ -185,6 +185,39 @@ test('service：startProxy → 局域网状态（含二维码）；startTunnel �
   await service.dispose();
 });
 
+test('service: logs QR generation failures while keeping status available', async () => {
+  const warnings = [];
+  const internals = {
+    ...stubInternals(),
+    encodeQr: async () => {
+      const error = new Error('QR encoder unavailable');
+      error.code = 'MODULE_NOT_FOUND';
+      throw error;
+    },
+  };
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals,
+    log: {
+      info() {},
+      log() {},
+      warn: (...args) => warnings.push(args),
+    },
+  });
+
+  await service.startProxy();
+  const status = await service.status();
+
+  assert.equal(status.lanQr, null);
+  assert.ok(warnings.some(([message, code, detail]) =>
+    message === 'dsh-pocket: QR generation failed (%s): %s'
+      && code === 'MODULE_NOT_FOUND'
+      && detail === 'QR encoder unavailable'));
+
+  await service.dispose();
+});
+
 test('RPC：status / tunnel.start / tunnel.stop / 未知端点', async () => {
   const internals = stubInternals();
   const service = createPocketService({ dshPort: 3080, port: 3081, internals });
