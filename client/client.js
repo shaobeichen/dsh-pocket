@@ -113,6 +113,8 @@ function redactStatus(s) {
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: "idle" },
+    // 就绪度快照（自愈排障用；只有计数/时间戳/错误文案，无敏感信息）
+    tunnelHealth: s?.tunnelHealth ?? null,
     tunnelConfig: s?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false },
     dshPort: s?.dshPort ?? null
   };
@@ -2052,6 +2054,7 @@ var zh2 = {
   "stopTunnel": "\u5173\u95ED\u516C\u7F51",
   "enable": "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE",
   "opening": "\u5F00\u542F\u4E2D\u2026",
+  "reconnecting": "\u91CD\u8FDE\u4E2D\u2026",
   "tunnelMode": "\u516C\u7F51\u6A21\u5F0F\uFF1A",
   "modeQuick": "\u968F\u673A\u57DF\u540D\uFF08\u9ED8\u8BA4\uFF09",
   "modeNamed": "\u56FA\u5B9A\u57DF\u540D",
@@ -2150,6 +2153,7 @@ var en2 = {
   "stopTunnel": "Stop",
   "enable": "Enable anywhere",
   "opening": "Enabling\u2026",
+  "reconnecting": "Reconnecting\u2026",
   "tunnelMode": "Mode:",
   "modeQuick": "Random URL (default)",
   "modeNamed": "Fixed domain",
@@ -2475,6 +2479,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? "idle";
   const tunnelStarting = ["downloading", "starting", "registering"].includes(tunnelPhase);
+  const tunnelRestarting = tunnelPhase === "restarting";
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   const tunnelModeView = status?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false };
@@ -2651,9 +2656,17 @@ function PocketSettingsTab({ rpcCall, t }) {
         "div",
         { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
         (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("wanAccess")),
-        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy || tunnelStarting ? t("opening") : t("enable"))
+        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : (0, import_react2.createElement)(
+          "button",
+          { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting || tunnelRestarting },
+          tunnelRestarting ? t("reconnecting") : busy || tunnelStarting ? t("opening") : t("enable")
+        )
       ),
-      tunnelStarting ? (0, import_react2.createElement)(
+      tunnelRestarting ? (0, import_react2.createElement)(
+        "div",
+        { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)" } },
+        errText(tunnelStateDetail) || t("reconnecting")
+      ) : tunnelStarting ? (0, import_react2.createElement)(
         "div",
         { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
         tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })

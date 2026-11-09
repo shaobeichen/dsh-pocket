@@ -71,13 +71,18 @@ test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', asy
   try {
     await withFakeBin(bin, async () => {
       const ac = new AbortController();
-      const { url, kill } = await startQuickTunnel({ port: 3081, signal: ac.signal });
-      kill();
+      const res = await startQuickTunnel({ port: 3081, signal: ac.signal });
+      res.kill();
       const argv = JSON.parse(await readFile(record, 'utf8'));
-      assert.ok(url.includes('trycloudflare.com'), '应解析到快速隧道 URL');
+      assert.ok(res.url.includes('trycloudflare.com'), '应解析到快速隧道 URL');
       assert.equal(argv[0], '--no-autoupdate', '--no-autoupdate 必须是 argv 第一个（全局位置）');
       assert.ok(argv.indexOf('tunnel') > argv.indexOf('--no-autoupdate'), '--no-autoupdate 必须在 tunnel 子命令之前');
       assert.ok(argv.includes('--url'), '快速隧道应含 --url');
+      // 就绪度探活：必须显式指定 metrics 端口（服务层靠它轮询 /ready 判断"进程活着但边缘失联"）
+      const metricsIdx = argv.indexOf('--metrics');
+      assert.ok(metricsIdx > 0, '快速隧道必须显式指定 --metrics');
+      assert.match(argv[metricsIdx + 1], /^127\.0\.0\.1:\d+$/, 'metrics 只绑本机回环');
+      assert.equal(Number(argv[metricsIdx + 1].split(':').pop()), res.metricsPort, '句柄回传的 metricsPort 与实参一致');
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -96,6 +101,11 @@ test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 ru
       assert.equal(argv[0], '--no-autoupdate', '--no-autoupdate 必须是 argv 第一个（全局位置）');
       assert.ok(argv.indexOf('tunnel') > argv.indexOf('--no-autoupdate'), '--no-autoupdate 必须在 tunnel 子命令之前');
       assert.ok(argv.includes('run'), '命名隧道应含 run 子命令');
+      // 命名隧道同样需要 metrics 端口做就绪度探活
+      const metricsIdx = argv.indexOf('--metrics');
+      assert.ok(metricsIdx > 0, '命名隧道必须显式指定 --metrics');
+      assert.match(argv[metricsIdx + 1], /^127\.0\.0\.1:\d+$/, 'metrics 只绑本机回环');
+      assert.equal(Number(argv[metricsIdx + 1].split(':').pop()), res.metricsPort, '句柄回传的 metricsPort 与实参一致');
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
