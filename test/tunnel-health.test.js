@@ -89,7 +89,6 @@ test('probeTunnelReady：超时 → 不 ok（metrics 就在本机，超时即异
   const { server, port } = await listen((req, res) => {
     // 永不主动响应，等客户端超时
     pending = setTimeout(() => { try { res.end('{}'); } catch { /* 已断开 */ } }, 5000);
-    pending.unref?.();
   });
   t.after(() => {
     if (pending) clearTimeout(pending);

@@ -2055,6 +2055,7 @@ var zh2 = {
   "enable": "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE",
   "opening": "\u5F00\u542F\u4E2D\u2026",
   "reconnecting": "\u91CD\u8FDE\u4E2D\u2026",
+  "stopReconnect": "\u505C\u6B62\u91CD\u8FDE",
   "tunnelMode": "\u516C\u7F51\u6A21\u5F0F\uFF1A",
   "modeQuick": "\u968F\u673A\u57DF\u540D\uFF08\u9ED8\u8BA4\uFF09",
   "modeNamed": "\u56FA\u5B9A\u57DF\u540D",
@@ -2154,6 +2155,7 @@ var en2 = {
   "enable": "Enable anywhere",
   "opening": "Enabling\u2026",
   "reconnecting": "Reconnecting\u2026",
+  "stopReconnect": "Stop reconnecting",
   "tunnelMode": "Mode:",
   "modeQuick": "Random URL (default)",
   "modeNamed": "Fixed domain",
@@ -2656,10 +2658,10 @@ function PocketSettingsTab({ rpcCall, t }) {
         "div",
         { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
         (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("wanAccess")),
-        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : (0, import_react2.createElement)(
+        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : tunnelRestarting ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopReconnect")) : (0, import_react2.createElement)(
           "button",
-          { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting || tunnelRestarting },
-          tunnelRestarting ? t("reconnecting") : busy || tunnelStarting ? t("opening") : t("enable")
+          { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting },
+          busy || tunnelStarting ? t("opening") : t("enable")
         )
       ),
       tunnelRestarting ? (0, import_react2.createElement)(

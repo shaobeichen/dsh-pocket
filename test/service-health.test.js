@@ -10,18 +10,15 @@ import assert from 'node:assert/strict';
 import { createPocketService } from '../lib/service.mjs';
 import { redactStatus } from '../client/api.js';
 
-function waitFor(predicate, { timeoutMs = 3000, intervalMs = 10, label = 'condition' } = {}) {
-  return new Promise((resolve, reject) => {
-    const startedAt = Date.now();
-    const tick = () => {
-      let ok = false;
-      try { ok = Boolean(predicate()); } catch { ok = false; }
-      if (ok) return resolve();
-      if (Date.now() - startedAt > timeoutMs) return reject(new Error(`waitFor timeout: ${label}`));
-      setTimeout(tick, intervalMs).unref?.();
-    };
-    tick();
-  });
+async function waitFor(predicate, { timeoutMs = 3000, intervalMs = 10, label = 'condition' } = {}) {
+  const startedAt = Date.now();
+  for (;;) {
+    let ok = false;
+    try { ok = Boolean(await predicate()); } catch { ok = false; }
+    if (ok) return;
+    if (Date.now() - startedAt > timeoutMs) throw new Error(`waitFor timeout: ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
 }
 
 /** 假隧道工厂：每次 spawn 产生一个句柄；可手动触发 onExit（模拟进程崩溃）。 */
@@ -29,6 +26,7 @@ function makeTunnelFactory() {
   const handles = [];
   let spawnCount = 0;
   const failQueue = [];
+  let autoExitMs = null;
   const startTunnel = async ({ onPhase } = {}) => {
     spawnCount += 1;
     if (failQueue.length) throw failQueue.shift();
@@ -46,6 +44,7 @@ function makeTunnelFactory() {
       exit(code = 1) { handle.exitCb?.(code); },
     };
     handles.push(handle);
+    if (autoExitMs !== null) setTimeout(() => handle.exit(1), autoExitMs);
     return handle;
   };
   return {
@@ -54,6 +53,7 @@ function makeTunnelFactory() {
     get spawnCount() { return spawnCount; },
     get last() { return handles[handles.length - 1]; },
     failOnce(err) { failQueue.push(err); },
+    setAutoExit(ms) { autoExitMs = ms; },
   };
 }
 
@@ -85,6 +85,7 @@ function makeService({ probe, tunnelFactory, ...overrides } = {}) {
     healthStartupGraceMs: 0, // 单测默认关闭宽限（专门测宽限的用例自己传）
     healthRestartBackoffMs: [0],
     healthMaxRestarts: 2,
+    healthStableMs: 60_000, // 单测默认不让"稳定"重置预算；专门测复位的用例自己传 0
     log: { info() {}, log() {}, warn() {}, error() {} },
     ...overrides,
   });
@@ -199,7 +200,7 @@ test('重建退避等待期间用户手动关闭 → 取消重建，不再 spawn
   service.stopTunnel(); // 用户在等待期间关闭
   await pending;
 
-  await new Promise((resolve) => setTimeout(resolve, 120).unref?.());
+  await new Promise((resolve) => setTimeout(resolve, 120));
   assert.equal(factory.spawnCount, 1, '用户主动关闭后不得再重建');
   const status = await service.status();
   assert.equal(status.tunnelState.phase, 'idle');
@@ -258,7 +259,7 @@ test('启动宽限期内（边缘注册尚未完成）探活失败不计数，�
   assert.equal((await service.status()).tunnelHealth.consecutiveFailures, 0, '宽限期内失败不计数');
 
   // 宽限到点仍未就绪 → 恢复计数，两次失败后重建
-  await new Promise((resolve) => setTimeout(resolve, 340).unref?.());
+  await new Promise((resolve) => setTimeout(resolve, 340));
   await service.checkTunnelHealth();
   await service.checkTunnelHealth();
   assert.equal(factory.spawnCount, 2, '宽限结束后照常自动重建');
@@ -282,6 +283,115 @@ test('宽限期内首次探活成功即提前结束宽限，之后失败照常�
   await service.checkTunnelHealth();
   await service.checkTunnelHealth();
   assert.equal(factory.spawnCount, 2, '宽限结束后失败照常触发重建');
+  await service.dispose();
+});
+
+test('启动成功但 /ready 永远为 0：预算跨事件累计，耗尽后停手（不再无限换地址/轮换密码）', async () => {
+  const { service, factory, setProbe } = makeService({ healthMaxRestarts: 2 });
+  await service.startProxy();
+  await service.startTunnel(); // 第 1 次 spawn
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+
+  const failCycle = async () => { await service.checkTunnelHealth(); await service.checkTunnelHealth(); };
+  await failCycle(); // 第 1 次自动重建成功（budget=1，spawn 2）
+  await failCycle(); // 第 2 次自动重建成功（budget=2，spawn 3）
+  await failCycle(); // 预算已耗尽 → 不再 spawn，置 error
+
+  const status = await service.status();
+  assert.equal(factory.spawnCount, 3, '初始 1 次 + 2 次自动重建后必须停手（旧实现会无限重建）');
+  assert.equal(status.tunnelState.phase, 'error');
+  assert.match(status.tunnelState.detail, /连续 2 次未恢复/);
+  assert.equal(status.tunnelRunning, false);
+  await service.dispose();
+});
+
+test('进程启动后立即退出：预算耗尽后停手，不无限 spawn', async () => {
+  const { service, factory } = makeService({ healthMaxRestarts: 2 });
+  factory.setAutoExit(1); // 每次 spawn 后 1ms 进程就退出
+  await service.startProxy();
+  await service.startTunnel();
+
+  await waitFor(async () => (await service.status()).tunnelState.phase === 'error', {
+    timeoutMs: 5000, label: 'budget exhausted → error',
+  });
+  const countAtError = factory.spawnCount;
+  assert.ok(countAtError <= 3, `spawn 次数必须有界（实际 ${countAtError}）`);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(factory.spawnCount, countAtError, 'error 后不得继续重建');
+  await service.dispose();
+});
+
+test('连续健康满 healthStableMs 后预算清零：再次失联仍可重建', async () => {
+  const { service, factory, setProbe } = makeService({ healthMaxRestarts: 1, healthStableMs: 0 });
+  await service.startProxy();
+  await service.startTunnel();
+
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+  await service.checkTunnelHealth();
+  await service.checkTunnelHealth(); // 耗尽唯一预算 → 自动重建（attempt=1，spawn 2）
+  assert.equal(factory.spawnCount, 2);
+  assert.equal((await service.status()).tunnelState.phase, 'ready');
+
+  setProbe({ ok: true, readyConnections: 1, status: 200, error: '' });
+  await service.checkTunnelHealth(); // 稳定健康 → 预算清零
+
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+  await service.checkTunnelHealth();
+  await service.checkTunnelHealth(); // 预算已复位 → 允许再次重建（spawn 3）
+  assert.equal(factory.spawnCount, 3, '稳定健康后预算应清零，允许再次自愈');
+  assert.equal((await service.status()).tunnelState.phase, 'ready');
+  await service.dispose();
+});
+
+test('用户手动重新开启会清零预算：error 后点「开启」+ 再失联仍可自愈', async () => {
+  const { service, factory, setProbe } = makeService({ healthMaxRestarts: 1 });
+  await service.startProxy();
+  await service.startTunnel();
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+
+  const failCycle = async () => { await service.checkTunnelHealth(); await service.checkTunnelHealth(); };
+  await failCycle(); // 自动重建一次（spawn 2，预算耗尽）
+  await failCycle(); // 立即 error
+  assert.equal((await service.status()).tunnelState.phase, 'error');
+  const countAtError = factory.spawnCount;
+
+  setProbe({ ok: true, readyConnections: 1, status: 200, error: '' });
+  await service.startTunnel(); // 用户手动重新开启（resetTunnelBudget 在 startTunnel 里）
+  assert.equal(factory.spawnCount, countAtError + 1, '用户手动开启应重新 spawn');
+
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+  await failCycle(); // 预算已由手动开启清零 → 允许一次新的自愈
+  assert.equal(factory.spawnCount, countAtError + 2, '手动开启后预算清零，可再次自愈');
+  await service.dispose();
+});
+
+test('旧隧道的稳定期不跨实例：崩溃重建后，新隧道第一次探活成功不得立即清零预算', async () => {
+  // 评审反馈的边界：healthStableSince 若不在 kill/重建时清空，旧隧道长期稳定会被算到新隧道头上，
+  // 新隧道第一次探活成功就把预算清零 → "能启动但马上死"又会变成有限预算下的无限循环。
+  const { service, factory, setProbe } = makeService({ healthMaxRestarts: 1, healthStableMs: 200 });
+  await service.startProxy();
+  await service.startTunnel(); // spawn 1
+
+  setProbe({ ok: true, readyConnections: 1, status: 200, error: '' });
+  await service.checkTunnelHealth(); // 旧隧道开始稳定计时（t0）
+
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+  await service.checkTunnelHealth();
+  await service.checkTunnelHealth(); // 耗尽预算 1 → 自动重建（spawn 2）
+  assert.equal(factory.spawnCount, 2);
+
+  await new Promise((resolve) => setTimeout(resolve, 260)); // 若不清空，旧稳定窗口已超 healthStableMs
+
+  setProbe({ ok: true, readyConnections: 1, status: 200, error: '' });
+  await service.checkTunnelHealth(); // 新隧道第一次探活成功：预算必须仍为已耗尽状态
+
+  setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
+  await service.checkTunnelHealth();
+  await service.checkTunnelHealth();
+
+  const status = await service.status();
+  assert.equal(factory.spawnCount, 2, '预算不得因旧稳定期被清零（否则会再次无限重建）');
+  assert.equal(status.tunnelState.phase, 'error');
   await service.dispose();
 });
 
