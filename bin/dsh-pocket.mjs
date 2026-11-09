@@ -103,6 +103,8 @@ function printHelp() {
 用法：
   dsh-pocket             局域网模式（手机同一 WiFi）
   dsh-pocket --public    公网模式（cloudflared 隧道，人在外面）
+                         ⚠️ CLI 模式不含「就绪探活/自愈」——需要自愈请用 DSH 设置页
+                         「手机访问」的插件模式（本 CLI 仍是单次隧道，掉线需重开）
   dsh-pocket --port 3081 自定义代理端口
   dsh-pocket --host      自定义监听地址（默认 0.0.0.0）
   dsh-pocket --pin <值>  自定义访问密码（至少 ${MIN_PIN_LENGTH} 位；也可用环境变量 DSH_POCKET_PIN）
@@ -186,6 +188,7 @@ async function main() {
       tunnel = await startQuickTunnel({ port, signal: controller.signal });
       printQr(entryUrl(tunnel.url, pin), '🌐 公网访问（人在外面也能用）：');
       console.log('   隧道会持续运行；Ctrl+C 退出（下次启动会换新 URL）');
+      console.log('   注意：CLI 模式不含就绪探活/自愈，隧道静默失效时需手动重启（设置页插件模式才自愈）。');
     } catch (err) {
       console.error(`❌ 公网隧道失败：${err.message}（局域网二维码仍可用）`);
     }

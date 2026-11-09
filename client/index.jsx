@@ -497,7 +497,7 @@ function PocketSettingsTab({ rpcCall, t }) {
         tunnelUrl
           ? h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: stopTunnel }, t('stopTunnel'))
           // 自动重连中：旧地址已失效（tunnelUrl 为空），给一个「停止重连」出口——
-          // 否则用户只能干等最多 healthMaxRestarts 轮退避重建，没法取消（评审反馈）。
+          // 否则用户只能干等最多 healthMaxRestarts 轮退避重建，无法取消。
           : tunnelRestarting
             ? h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: stopTunnel }, t('stopReconnect'))
             : h('button', { style: { ...styles.primary, height: 28, padding: '0 14px', fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting },

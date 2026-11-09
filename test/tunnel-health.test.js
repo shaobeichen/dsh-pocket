@@ -76,6 +76,18 @@ test('probeTunnelReady：响应体不是 JSON 也不崩（按不 ok 处理）', 
   assert.equal(result.readyConnections, 0);
 });
 
+test('probeTunnelReady：/ready 404（旧版自定义 cloudflared）→ unsupported=true，交给服务层关闭自愈', async (t) => {
+  const { server, port } = await listen((req, res) => {
+    res.writeHead(404, { 'content-type': 'text/plain' });
+    res.end('404 page not found');
+  });
+  t.after(() => close(server));
+
+  const result = await probeTunnelReady({ port });
+  assert.equal(result.ok, false);
+  assert.equal(result.unsupported, true, '404 必须标记为 unsupported，而不是"失联"');
+});
+
 test('probeTunnelReady：端口不可达（进程已死/端口被抢）→ 不 ok 且带 error', async () => {
   // 取一个刚释放的端口，再立即探测：正常情况下连接被拒
   const port = await pickFreePort();

@@ -27,8 +27,10 @@ function makeTunnelFactory() {
   let spawnCount = 0;
   const failQueue = [];
   let autoExitMs = null;
+  let spawnDelayMs = 0;
   const startTunnel = async ({ onPhase } = {}) => {
     spawnCount += 1;
+    if (spawnDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, spawnDelayMs));
     if (failQueue.length) throw failQueue.shift();
     onPhase?.('starting');
     onPhase?.('registering');
@@ -54,6 +56,7 @@ function makeTunnelFactory() {
     get last() { return handles[handles.length - 1]; },
     failOnce(err) { failQueue.push(err); },
     setAutoExit(ms) { autoExitMs = ms; },
+    setSpawnDelay(ms) { spawnDelayMs = ms; },
   };
 }
 
@@ -238,12 +241,12 @@ test('没有 metrics 端口的隧道（旧实现）→ 跳过探活，不误判�
 });
 
 test('未开启隧道（或已停止）时 checkTunnelHealth 是空操作', async () => {
-  const { service, probeCalls: _unused, ...rest } = makeService();
-  const before = rest.probeCalls;
-  const health = await service.checkTunnelHealth();
+  const h = makeService();
+  const before = h.probeCalls;
+  const health = await h.service.checkTunnelHealth();
   assert.equal(health.readyConnections, null);
-  assert.equal(rest.probeCalls, before, '没有隧道不探活');
-  await service.dispose();
+  assert.equal(h.probeCalls, before, '没有隧道不探活');
+  await h.service.dispose();
 });
 
 test('启动宽限期内（边缘注册尚未完成）探活失败不计数，不误重建', async () => {
@@ -287,7 +290,11 @@ test('宽限期内首次探活成功即提前结束宽限，之后失败照常�
 });
 
 test('启动成功但 /ready 永远为 0：预算跨事件累计，耗尽后停手（不再无限换地址/轮换密码）', async () => {
-  const { service, factory, setProbe } = makeService({ healthMaxRestarts: 2 });
+  const warns = [];
+  const { service, factory, setProbe } = makeService({
+    healthMaxRestarts: 2,
+    log: { info() {}, log() {}, warn: (...a) => warns.push(a.join(' ')), error() {} },
+  });
   await service.startProxy();
   await service.startTunnel(); // 第 1 次 spawn
   setProbe({ ok: false, readyConnections: 0, status: 503, error: '' });
@@ -302,6 +309,7 @@ test('启动成功但 /ready 永远为 0：预算跨事件累计，耗尽后停�
   assert.equal(status.tunnelState.phase, 'error');
   assert.match(status.tunnelState.detail, /连续 2 次未恢复/);
   assert.equal(status.tunnelRunning, false);
+  assert.ok(warns.some((w) => /自愈重建仍未恢复|gave up/.test(w)), '预算耗尽必须留下最终结论日志');
   await service.dispose();
 });
 
@@ -393,6 +401,117 @@ test('旧隧道的稳定期不跨实例：崩溃重建后，新隧道第一次�
   assert.equal(factory.spawnCount, 2, '预算不得因旧稳定期被清零（否则会再次无限重建）');
   assert.equal(status.tunnelState.phase, 'error');
   await service.dispose();
+});
+
+test('旧版 cloudflared 没有 /ready（HTTP 404）：关闭就绪自愈，不重建本来可用的隧道', async () => {
+  let probes = 0;
+  const factory = makeTunnelFactory();
+  const warns = [];
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals: {
+      ...makeInternals({
+        probe: async () => {
+          probes += 1;
+          return { ok: false, readyConnections: 0, status: 404, unsupported: true, error: '' };
+        },
+        tunnelFactory: factory,
+      }),
+    },
+    healthCheckIntervalMs: 20,
+    healthCheckFailures: 2,
+    healthStartupGraceMs: 0,
+    healthRestartBackoffMs: [0],
+    healthMaxRestarts: 2,
+    log: { info() {}, log() {}, warn: (...a) => warns.push(a.join(' ')), error() {} },
+  });
+  await service.startProxy();
+  await service.startTunnel();
+  await waitFor(() => probes >= 1, { label: 'first 404 probe' });
+  await new Promise((resolve) => setTimeout(resolve, 120)); // 定时器应已关闭
+
+  const status = await service.status();
+  assert.equal(factory.spawnCount, 1, '404 不代表失联，绝不能重建可用隧道');
+  assert.equal(status.tunnelState.phase, 'ready');
+  assert.ok(probes <= 2, `关闭自愈后应停止探活（实际探测 ${probes} 次）`);
+  assert.ok(warns.some((w) => /ready unsupported|就绪自愈已关闭/.test(w)), '应告警一次');
+  await service.dispose();
+});
+
+test('healthCheckIntervalMs<=0（兼容旧行为）：进程退出只置 error，不自动重建', async () => {
+  const { service, factory } = makeService({ healthCheckIntervalMs: 0 });
+  await service.startProxy();
+  await service.startTunnel();
+  factory.last.exit(1);
+  await waitFor(async () => (await service.status()).tunnelState.phase === 'error', { label: 'legacy error state' });
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(factory.spawnCount, 1, '关闭自愈时不得重建');
+  await service.dispose();
+});
+
+test('启动进行中 stopTunnel：晚到的隧道进程必须被杀掉，不得"复活"成 ready', async () => {
+  const factory = makeTunnelFactory();
+  factory.setSpawnDelay(120);
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals: makeInternals({ tunnelFactory: factory, probe: async () => ({ ok: true, readyConnections: 1, status: 200, unsupported: false, error: '' }) }),
+    healthCheckIntervalMs: 60_000,
+    healthCheckFailures: 2,
+    healthStartupGraceMs: 0,
+    log: { info() {}, log() {}, warn() {}, error() {} },
+  });
+  await service.startProxy();
+  const startPromise = service.startTunnel(); // 启动中（spawn 还在 delay 里）
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  service.stopTunnel(); // 用户停止
+
+  await assert.rejects(() => startPromise, /已取消|cancelled/);
+  await new Promise((resolve) => setTimeout(resolve, 200)); // 等晚到的 spawn 完成清理
+
+  const status = await service.status();
+  assert.equal(status.tunnelState.phase, 'idle');
+  assert.equal(status.tunnelRunning, false);
+  assert.equal(factory.last?.killed, true, '晚到的隧道进程必须被杀掉');
+  assert.equal(factory.spawnCount, 1);
+  await service.dispose();
+});
+
+test('停止后旧进程的 onExit 晚到：不得触发自愈重建', async () => {
+  const { service, factory } = makeService();
+  await service.startProxy();
+  await service.startTunnel();
+  const handle = factory.last;
+  service.stopTunnel();
+  handle.exit(1); // 模拟 kill 后 exit 回调晚到
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(factory.spawnCount, 1);
+  assert.equal((await service.status()).tunnelState.phase, 'idle');
+  await service.dispose();
+});
+
+test('dispose 会停止探活定时器，不再继续探活', async () => {
+  let probes = 0;
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals: makeInternals({
+      tunnelFactory: makeTunnelFactory(),
+      probe: async () => { probes += 1; return { ok: true, readyConnections: 1, status: 200, unsupported: false, error: '' }; },
+    }),
+    healthCheckIntervalMs: 20,
+    healthCheckFailures: 2,
+    healthStartupGraceMs: 0,
+    log: { info() {}, log() {}, warn() {}, error() {} },
+  });
+  await service.startProxy();
+  await service.startTunnel();
+  await waitFor(() => probes >= 1, { label: 'first probe' });
+  await service.dispose();
+  const probesAfterDispose = probes;
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(probes, probesAfterDispose, 'dispose 后不得继续探活');
 });
 
 test('自动定时器：健康时按间隔轮询，失败达阈值后自动重建（不依赖手动调用）', async () => {
