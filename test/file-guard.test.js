@@ -1,9 +1,9 @@
 // 移动端文件守卫（issue #17 修正）：手机点文件链接会触发桌面 open 失败，改为弹提示；
-// 并隐藏「添加工作区」入口。测试只验证「接线 + 识别方式不依赖 hash 类名 + 打包产物
-// 含逻辑 + CSS 隐藏入口」，与 mobile-nav.test.js 同风格（不引 jsdom，读源码/产物断言）。
+// 并隐藏「添加工作区」入口。验证接线、稳定选择器、产物行为与入口样式。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 
 const src = readFileSync(new URL('../client/mobile/fileGuard.ts', import.meta.url), 'utf8');
 const apply = readFileSync(new URL('../client/mobile/mobile-apply.tsx', import.meta.url), 'utf8');
@@ -50,4 +50,61 @@ test('CSS 隐藏「添加工作区」图标 + 复制按钮样式（窄屏）', (
   assert.ok(css.includes('button[aria-label="Add workspace"]'), 'mobile.css.ts 必须隐藏 en 添加工作区按钮');
   // 复制按钮样式必须存在（窄屏才注入/显示）
   assert.ok(css.includes('[data-mobile-nav="copy-file"]'), 'mobile.css.ts 必须含复制按钮样式');
+});
+
+test('模型控件放行点击且不注入复制按钮，文件链接继续受保护', () => {
+  const start = bundle.indexOf('// client/mobile/fileGuard.ts\n');
+  const end = bundle.indexOf('// client/mobile/mobile.css.ts\n', start);
+  assert.ok(start >= 0 && end > start, '必须测试实际发布的文件守卫');
+
+  for (const model of [true, false]) {
+    const attributes = new Map();
+    let onClick;
+    let copies = 0;
+    let blocked = false;
+    // DSH 在模型按钮和 portal 菜单项的标签上都带有这两个属性。
+    const element = {
+      textContent: '[公益]amd/mimo-v2.6-flash',
+      closest: () => element,
+      querySelector: selector => model && selector === '[data-provider-id][data-model-id]' ? {} : null,
+      getAttribute: name => attributes.get(name) ?? null,
+      setAttribute: (name, value) => attributes.set(name, value),
+      parentElement: { insertBefore: () => { copies++; } },
+    };
+    const document = {
+      body: { appendChild() {} },
+      addEventListener: (name, listener) => { if (name === 'click') onClick = listener; },
+      removeEventListener() {},
+      querySelectorAll: selector => selector === 'button, a' ? [element] : [],
+      createElement: () => ({
+        style: {},
+        setAttribute() {},
+        addEventListener() {},
+        remove() {},
+      }),
+    };
+    const startFileGuard = runInNewContext(`${bundle.slice(start, end)}\nstartFileGuard`, {
+      document,
+      window: { setTimeout() {}, clearTimeout() {} },
+      requestAnimationFrame: callback => callback(),
+      MutationObserver: class {
+        observe() {}
+        disconnect() {}
+      },
+    });
+    const stop = startFileGuard(() => assert.fail('点击模型或文件链接时不应读取文件'));
+    try {
+      onClick({
+        target: element,
+        preventDefault: () => { blocked = true; },
+        stopImmediatePropagation() {},
+      });
+      assert.deepEqual({ blocked, copies }, {
+        blocked: !model,
+        copies: model ? 0 : 1,
+      }, model ? '模型控件应正常接收点击' : '同样的路径文案作为文件链接时仍受保护');
+    } finally {
+      stop();
+    }
+  }
 });

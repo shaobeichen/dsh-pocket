@@ -558,6 +558,7 @@ function startFileGuard(readFile) {
     const el = target.closest("button, a");
     if (el === null) return;
     if (!looksLikeFilePath(el.textContent)) return;
+    if (el.querySelector("[data-provider-id][data-model-id]") !== null) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     showToast(GUARD_MSG);
@@ -569,6 +570,7 @@ function startFileGuard(readFile) {
       if (el.getAttribute("data-mobile-nav-copy") === "1") return;
       const txt = (el.textContent ?? "").trim();
       if (!looksLikeFilePath(txt)) return;
+      if (el.querySelector("[data-provider-id][data-model-id]") !== null) return;
       el.setAttribute("data-mobile-nav-copy", "1");
       const btn = document.createElement("button");
       btn.type = "button";
