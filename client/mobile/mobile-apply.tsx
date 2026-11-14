@@ -6,7 +6,7 @@ import { MobileDrawerFooter } from './MobileDrawerFooter.tsx'
 import { startFileGuard } from './fileGuard.ts'
 import { MOBILE_CSS } from './mobile.css.ts'
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT } from '../api.js'
-import { NS, en, zh } from './locales.ts'
+import { NS, en, ja, zh } from './locales.ts'
 import type { MobileNavKey } from './locales.ts'
 import { resolveLayout, persistLayoutFromUrl } from './layout-mode.mjs'
 
@@ -42,7 +42,7 @@ export function mobileApply(ctx): void {
     narrow = { matches: true, addEventListener: () => {}, removeEventListener: () => {} } as MediaQueryList;
   }
 
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-mobile-nav: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja }), 'dsh-mobile-nav: dictionaries')
 
   ctx.effect(() => {
     let active = true

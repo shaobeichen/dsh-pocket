@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const { NS, zh, en } = await import('../client/pocket-locales.js');
+const { NS, zh, en, ja } = await import('../client/pocket-locales.js');
 
 const ph = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -19,6 +19,15 @@ test('pocket 词典：占位符 {placeholder} 在 zh/en 中一致', () => {
   for (const key of Object.keys(zh)) {
     assert.deepEqual(ph(en[key]), ph(zh[key]), `key "${key}" 的占位符在 zh/en 不一致`);
   }
+});
+
+test('pocket 词典：zh/ja key 集合与占位符完全一致', () => {
+  const zhKeys = Object.keys(zh).sort();
+  assert.deepEqual(Object.keys(ja).sort(), zhKeys, 'ja 与 zh 的 key 必须一一对应');
+  for (const key of Object.keys(zh)) {
+    assert.deepEqual(ph(ja[key]), ph(zh[key]), `key "${key}" 的占位符在 zh/ja 不一致`);
+  }
+  assert.equal(ja.section, 'スマホアクセス', 'tab 标签日文');
 });
 
 test('pocket 词典：源码 t()/fmt() 引用的 key 都在词典中', () => {

@@ -19,5 +19,14 @@ export const en: Record<MobileNavKey, string> = {
   'files': 'Files',
 }
 
+/** Japanese dictionary, key-identical to the Chinese source of truth. */
+export const ja: Record<MobileNavKey, string> = {
+  'open': 'ディレクトリを開く',
+  'close': 'ディレクトリを閉じる',
+  'backdrop': 'クリックでディレクトリを閉じる',
+  'sessionLog': 'セッションログをエクスポート',
+  'files': 'ファイル',
+}
+
 /** Key domain of the `pocketMobileNav` namespace (zh is the source of truth). */
 export type MobileNavKey = keyof typeof zh
