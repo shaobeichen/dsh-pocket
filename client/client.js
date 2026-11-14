@@ -2040,6 +2040,8 @@ var zh2 = {
   "cancel": "\u53D6\u6D88",
   "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8\u201364 \u4F4D\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57",
   "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
+  "pinShow": "\u663E\u793A",
+  "pinHide": "\u9690\u85CF",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "mobileRightbar": "\u624B\u673A\u7AEF\u53F3\u8FB9\u680F",
@@ -2138,6 +2140,8 @@ var en2 = {
   "cancel": "Cancel",
   "pinInvalid": "PIN must be 8\u201364 characters (letters and digits only)",
   "pinCustomHint": "custom PINs are not rotated on tunnel start",
+  "pinShow": "Show",
+  "pinHide": "Hide",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
   "lanStarting": "Proxy starting\u2026",
   "mobileRightbar": "Mobile right sidebar",
@@ -2187,6 +2191,23 @@ function fmt(t, key, vars) {
     }
   }
   return s;
+}
+function PinMask(props) {
+  const [shown, setShown] = (0, import_react2.useState)(false);
+  const value = props && props.value != null ? String(props.value) : "";
+  const t = props && typeof props.t === "function" ? props.t : () => "";
+  const dots = "\u2022".repeat(10);
+  return (0, import_react2.createElement)(
+    "span",
+    { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
+    (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, shown ? value : dots),
+    (0, import_react2.createElement)("button", {
+      type: "button",
+      style: { fontSize: 12, padding: "2px 10px", height: 26, borderRadius: 999, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "transparent", color: "var(--dsw-alias-label-secondary,#6b7280)", cursor: "pointer", font: "inherit" },
+      onClick: () => setShown((v) => !v),
+      title: shown ? t("pinHide") : t("pinShow")
+    }, shown ? t("pinHide") : t("pinShow"))
+  );
 }
 var styles = {
   card: { background: "var(--dsw-alias-bg-layer-1,#fff)", border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 12, padding: "16px 20px", maxWidth: 480 },
@@ -2607,7 +2628,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           status?.lanAuthEnabled === false ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("lanPinOff")) : customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
             "div",
             { style: { marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-            (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status.lanToken),
+            (0, import_react2.createElement)(PinMask, { value: status.lanToken, t }),
             (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: refreshLanPin }, t("refresh")),
             customBtn("lan"),
             status?.lanPinCustom ? (0, import_react2.createElement)("span", { style: { fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
@@ -2744,7 +2765,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           customPin?.which === "public" ? null : (0, import_react2.createElement)(
             "span",
             { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
-            (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status.accessToken),
+            (0, import_react2.createElement)(PinMask, { value: status.accessToken, t }),
             customBtn("public")
           ),
           (0, import_react2.createElement)(

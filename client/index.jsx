@@ -28,6 +28,23 @@ function fmt(t, key, vars) {
   return s;
 }
 
+// 访问密码默认遮罩：默认显示 10 个圆点，点「显示/隐藏」切换明文——防肩窥与截屏泄露。
+// 样式自包含（不依赖组件内部的 styles 对象），可在任意密码行复用。
+function PinMask(props) {
+  const [shown, setShown] = useState(false);
+  const value = props && props.value != null ? String(props.value) : '';
+  const t = props && typeof props.t === 'function' ? props.t : () => '';
+  const dots = '\u2022'.repeat(10);
+  return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8 } },
+    h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, shown ? value : dots),
+    h('button', {
+      type: 'button',
+      style: { fontSize: 12, padding: '2px 10px', height: 26, borderRadius: 999, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'transparent', color: 'var(--dsw-alias-label-secondary,#6b7280)', cursor: 'pointer', font: 'inherit' },
+      onClick: () => setShown((v) => !v),
+      title: shown ? t('pinHide') : t('pinShow'),
+    }, shown ? t('pinHide') : t('pinShow')));
+}
+
 // 官方 DeepSeek Harness 设计系统（dsh-client-ui-theme design-platform.css）：
 // 按钮 md=36px 胶囊形 / sm=28px；品牌色 --dsw-alias-brand-primary；
 // hover 走 --dsw-alias-button-*-hover；间距 4px 栅格；正文 13px。
@@ -468,7 +485,7 @@ function PocketSettingsTab({ rpcCall, t }) {
                 : (customPin?.which === 'lan'
                   ? customPinRow('lan')
                   : h('div', { style: { marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-                    h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, status.lanToken),
+                    h(PinMask, { value: status.lanToken, t }),
                     h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: refreshLanPin }, t('refresh')),
                     customBtn('lan'),
                     status?.lanPinCustom ? h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('pinCustomHint')) : null,
@@ -571,7 +588,7 @@ function PocketSettingsTab({ rpcCall, t }) {
               customPin?.which === 'public'
                 ? null
                 : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8 } },
-                  h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, status.accessToken),
+                  h(PinMask, { value: status.accessToken, t }),
                   customBtn('public')),
               h('div', { style: { marginTop: 6 } },
                 customPin?.which === 'public' ? customPinRow('public') : null,
