@@ -176,6 +176,38 @@ test('手机端右边栏默认显示，设置关闭后隐藏稳定 header corner
   assert.ok(apply.includes('MOBILE_RIGHTBAR_EVENT'), '设置切换后立即同步右栏入口');
 });
 
+test('会话头部放不下时横向滚动，而不是让 chip 互相压盖', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  // 取「某个选择器后面第一个 { ... }」的规则体，避免整份 CSS 里别处的同名声明干扰断言。
+  const ruleBody = selector => {
+    const at = css.indexOf(selector)
+    assert.ok(at >= 0, `缺少选择器 ${selector}`)
+    const open = css.indexOf('{', at)
+    const close = css.indexOf('}', open)
+    return css.slice(open + 1, close)
+  }
+  const cluster = '[data-phase] header [class$="_titleRow"] [class$="_titleCluster"]'
+  const body = ruleBody(`${cluster} {`)
+  assert.ok(body.includes('overflow-x: auto !important'), '头部集群必须能横向滚动');
+  assert.ok(body.includes('overflow-y: hidden !important'), '只滚动横轴，纵向不能把 chip 裁成半截');
+  assert.ok(body.includes('scrollbar-width: thin'), '滚动条要细，36px 的头部容不下常规滚动条');
+  // 子元素不再压缩：压缩正是 chip 溢出后互相压盖的成因
+  assert.ok(
+    ruleBody(`${cluster} > * {`).includes('flex: 0 0 auto !important'),
+    '集群子元素必须保持固有宽度',
+  );
+  // 滚动容器是集群，不是整行：右侧 utilities / corner 必须保持固定可点
+  assert.ok(
+    !/\[class\$="_titleRow"\]\s*\{[^}]*overflow-x/.test(css),
+    '不能让整行滚动，否则右栏入口会被推出视口',
+  );
+  // 细滚动条样式（webkit 需要显式高度才不是 overlay 隐藏态）
+  assert.ok(
+    css.includes(`${cluster}::-webkit-scrollbar {`),
+    '必须给 webkit 定义细滚动条，否则手机上默认是滑动才出现的 overlay',
+  );
+});
+
 test('composer 底栏用稳定 card 标记并在窄屏允许换行 (#170)', () => {
   const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
   assert.ok(css.includes('[data-composer-card="true"] > [class$="_row"]'));

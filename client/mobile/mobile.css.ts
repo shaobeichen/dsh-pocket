@@ -426,6 +426,36 @@ export const MOBILE_CSS = `
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
+  /* The header's leading cluster must SCROLL on a phone instead of painting over
+     its neighbours. DSH's title row is a flex row whose every cluster is
+     flex: none (ui-conversation ConversationRoot.module.css: titleRow /
+     titleCluster / headerUtilities / headerCorner), and it never clips: when the
+     crumbs plus the slot chips do not fit, the overflowing cluster simply draws
+     on top of the next one — on a phone 「N 个子智能体」 ends up printed over
+     「N 个后台任务运行中」, and the trailing corner control is covered as well.
+     Giving the flexible cluster overflow-x: auto clips its own content at its
+     own edge and makes the chips reachable by swiping, while the utilities and
+     the corner seat stay pinned and always tappable. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  /* Children keep their intrinsic width; shrinking is what produced the pile-up. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] > * {
+    flex: 0 0 auto !important;
+  }
+  /* 3px thumb: a 36px header has no room for a full-size scrollbar. Styling
+     ::-webkit-scrollbar also opts the phone out of overlay scrollbars, so the
+     hint that the row scrolls stays visible instead of only appearing mid-swipe. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"]::-webkit-scrollbar {
+    height: 3px;
+  }
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"]::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--dsw-alias-scrollbar-bg-l2, rgba(255, 255, 255, 0.28));
+  }
   /* The directory toggle sits at the far left of the header (the header
      is position:relative; the data-slot wrappers are display:contents). */
   [data-mobile-nav="toggle"] {
