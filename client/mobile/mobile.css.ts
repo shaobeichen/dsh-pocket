@@ -238,6 +238,50 @@ export const MOBILE_CSS = `
     border-right: none !important;
   }
 
+  /* Portaled popovers must paint ABOVE the drawer.
+     DSH's popover primitives render into <body> on one fixed layer:
+       Menu.tsx:572   createPortal(list, document.body)      -> role="menu", z 1100
+       Tooltip.tsx:270 createPortal(content, document.body)  -> role="tooltip" [data-portal], z 1100
+       Toast.tsx:75   createPortal(<div role="alert">)        -> role="alert", z 1100
+     (packages/client/ui-primitives/src/Menu.module.css:45 .portal, and
+     Tooltip.module.css:28 .bubble[data-portal], both z-index: 1100).
+     The drawer above is 1200, so every menu opened from a drawer control is
+     painted UNDER it:
+       - the panel list's 「更多」 (SidebarRoot PanelMoreMenu, align=start /
+         side=bottom) opens downward inside the 280px drawer and is fully
+         covered — the button looks dead;
+       - a session row's kebab (ui-workspace rows/Rows.tsx:760, align=end) opens
+         at the row's right edge, so only the sliver spilling past the drawer
+         edge shows — the menu looks cut off.
+     Lift the body-level popover layer above the drawer: 1220 clears every DSH
+     portal layer (menu/tooltip/toast 1100) and still sits far below the
+     viewport-level banners/toasts (z 9999). */
+  body > [role="menu"],
+  body > [role="listbox"],
+  body > [role="tooltip"],
+  body > [data-portal],
+  body > [role="alert"] {
+    z-index: 1220 !important;
+  }
+
+  /* Full-screen modal surfaces outrank the drawer as well.
+     SettingsRoot portals its overlay beside #root (SettingsRoot.tsx:70 ->
+     document.body) at z-index 1000 (SettingsRoot.module.css:63 .overlay), and
+     the Modal primitive's root is 1000 too (Modal.module.css:10) — both under
+     the 1200 drawer. Opening 设置 while the drawer is out therefore leaves the
+     drawer painted over the sheet: its title, its close button and the whole
+     left column disappear behind the 280px rail.
+     Matched by shape rather than a CSS-modules hash (those rotate on every
+     build): a body-level presentation root holding a modal dialog, plus the
+     dialog roots that are portaled on their own (PlatformOverlay.tsx:69 is
+     <div role="dialog" aria-modal="true"> itself, at z-index 1001). Popovers
+     opened from inside such a sheet stay one step higher (1220) so a dropdown
+     still clears the sheet that owns it. */
+  body > [role="presentation"]:has([aria-modal="true"]),
+  body > [role="dialog"][aria-modal="true"] {
+    z-index: 1210 !important;
+  }
+
   /* Expanded state (frame without data-sidebar-collapsed) slides the drawer in.
      The open state must be transform:none — NOT translateX(0): an identity
      transform still makes the drawer the containing block for fixed-position
