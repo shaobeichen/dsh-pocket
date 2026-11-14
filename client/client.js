@@ -2319,7 +2319,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   const doStartTunnel = async () => {
     const cfg = status?.tunnelConfig;
     if (cfg?.mode === "named" && (!cfg.hostname || !cfg.tokenSet)) {
-      setError(t("namedNeedCfg"));
+      setTunnelState({ phase: "error", detail: t("namedNeedCfg"), startedAt: null });
       return;
     }
     setBusy(true);
@@ -2328,7 +2328,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
-      setError(err.message);
+      setTunnelState({ phase: "error", detail: err?.message ?? String(err), startedAt: null });
     } finally {
       setBusy(false);
     }

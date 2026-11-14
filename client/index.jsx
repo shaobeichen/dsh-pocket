@@ -180,7 +180,8 @@ function PocketSettingsTab({ rpcCall, t }) {
     // 命名隧道模式：Token/域名没配齐就不发起（服务端同样会拒绝）
     const cfg = status?.tunnelConfig;
     if (cfg?.mode === 'named' && (!cfg.hostname || !cfg.tokenSet)) {
-      setError(t('namedNeedCfg'));
+      // 同一通道：配置不全也只写 tunnelState，不写全局 error（否则页面底部又来一条）
+      setTunnelState({ phase: 'error', detail: t('namedNeedCfg'), startedAt: null });
       return;
     }
     setBusy(true);
@@ -189,7 +190,12 @@ function PocketSettingsTab({ rpcCall, t }) {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
-      setError(err.message);
+      // 失败只走一条展示通道：tunnelState（与 service.mjs 的进度状态同源，
+      // 轮询 load() 也会拿到）。此前这里还会把失败写进全局 error 状态，页面底部
+      // 于是再渲染一遍同样的错误，而且那条没有区块归属、紧贴「手机端右边栏」，
+      // 读起来像那个开关失败了。开机自动恢复失败时用户没点过按钮，全局 error
+      // 恒为 null，只有 tunnelState 有值 —— 卡片那条才覆盖全部场景。
+      setTunnelState({ phase: 'error', detail: err?.message ?? String(err), startedAt: null });
     } finally {
       setBusy(false);
     }
