@@ -390,3 +390,24 @@ test('打包产物：mobile-apply 引用的组件都有 import 且有定义', ()
     assert.ok(defs >= 1, `${name} 在打包产物里只有引用、没有定义 —— 漏 import 会让整个插件加载失败`);
   }
 });
+
+
+test('issue #181：排版规则不覆盖输入框几何，控制行换行后不被固定行高裁掉', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  const exclude = ':has(p):not([data-input-scroll])';
+  assert.equal(css.split(exclude).length - 1, 4, 'padding 与 font-size 两组规则都要排除 [data-input-scroll]');
+  assert.ok(
+    !/\[class\$="_scroll"\]:has\(p\)\s*[{,p]/.test(css),
+    '不能留下未排除输入框的 :has(p) 选择器（会压掉皮肤给发送键预留的 padding-right）',
+  );
+  assert.match(css, /height: auto !important;\s*min-height: 28px !important;/, '换行必须配自适应高度');
+  assert.match(css, /max-height: none !important;\s*overflow: visible !important;/, '第二行控件不能被 28px 行盒裁掉');
+});
+
+test('issue #196：抽屉工作区保底高度 + 侧栏列可滚动', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  assert.match(css, /min-height: min\(55vh, 420px\) !important/, '矮屏上工作区不能被压成 0 高');
+  assert.match(css, /\[data-mobile-nav="frame"\] :has\(> \[class\$="_regionArea"\]\)/, '按直接子级定位列根，不靠子元素序号');
+  assert.match(css, /overflow-y: auto !important/, '上下固定区块溢出时仍能滚到工作区');
+  assert.match(css, /overscroll-behavior: contain !important/);
+});

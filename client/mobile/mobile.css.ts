@@ -383,7 +383,7 @@ export const MOBILE_CSS = `
     white-space: nowrap !important;
   }
 
-  [data-phase] [class$="_scroll"]:has(p) {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) {
     padding-left: 20px !important;
     padding-right: 20px !important;
     font-size: 15px !important;
@@ -392,9 +392,9 @@ export const MOBILE_CSS = `
      list items, so the container's inherited 15px is not enough. User
      messages render their text in a div whose class carries _text_
      (16px too) — cover it as well. */
-  [data-phase] [class$="_scroll"]:has(p) p,
-  [data-phase] [class$="_scroll"]:has(p) li,
-  [data-phase] [class$="_scroll"]:has(p) [class*="_text_"] {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) p,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) li,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) [class*="_text_"] {
     font-size: 15px !important;
   }
 
@@ -427,6 +427,13 @@ export const MOBILE_CSS = `
   [data-phase] [data-composer-card="true"] > [class$="_row"] {
     flex-wrap: wrap !important;
     gap: 6px !important;
+    /* issue #181：宿主/皮肤把控制行高度钉在 28px，只让 flex-wrap 换行会把
+       第二行内容裁掉（实测 scrollHeight 58 / clientHeight 28）。换行必须配上
+       自适应高度，才既保住 #170「模型药丸不被压成 0 宽」，又不吞掉控件。 */
+    height: auto !important;
+    min-height: 28px !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child {
     gap: 8px !important;
@@ -435,6 +442,25 @@ export const MOBILE_CSS = `
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child > :nth-child(2) {
     flex: 0 1 auto !important;
     min-width: 0 !important;
+  }
+
+  /* --- 抽屉里的工作区不能被上下固定区块挤没（issue #196）---
+     窄屏抽屉高度固定 100%，上部插件入口区与底部 footer 都是 flex:none，
+     中间的 regionArea 是 flex:1; min-height:0，在矮屏（如 iPhone SE）会被压到
+     0 高，会话列表完全点不到。给工作区一个保底高度，并让它所在的侧栏列可滚动。
+     用 :has(> ...) 定位列根：sidebarCol 与真正的侧栏根之间隔着一层
+     display:contents 的插槽包装，用子元素序号会选错。 */
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"]) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: none !important;
+  }
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"])::-webkit-scrollbar {
+    display: none !important;
+  }
+  [data-mobile-nav="frame"] [class$="_regionArea"] {
+    min-height: min(55vh, 420px) !important;
   }
 
   /* --- Composer popups as bottom sheets on mobile ---

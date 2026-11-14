@@ -875,7 +875,7 @@ var MOBILE_CSS = `
     white-space: nowrap !important;
   }
 
-  [data-phase] [class$="_scroll"]:has(p) {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) {
     padding-left: 20px !important;
     padding-right: 20px !important;
     font-size: 15px !important;
@@ -884,9 +884,9 @@ var MOBILE_CSS = `
      list items, so the container's inherited 15px is not enough. User
      messages render their text in a div whose class carries _text_
      (16px too) \u2014 cover it as well. */
-  [data-phase] [class$="_scroll"]:has(p) p,
-  [data-phase] [class$="_scroll"]:has(p) li,
-  [data-phase] [class$="_scroll"]:has(p) [class*="_text_"] {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) p,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) li,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) [class*="_text_"] {
     font-size: 15px !important;
   }
 
@@ -919,6 +919,13 @@ var MOBILE_CSS = `
   [data-phase] [data-composer-card="true"] > [class$="_row"] {
     flex-wrap: wrap !important;
     gap: 6px !important;
+    /* issue #181\uFF1A\u5BBF\u4E3B/\u76AE\u80A4\u628A\u63A7\u5236\u884C\u9AD8\u5EA6\u9489\u5728 28px\uFF0C\u53EA\u8BA9 flex-wrap \u6362\u884C\u4F1A\u628A
+       \u7B2C\u4E8C\u884C\u5185\u5BB9\u88C1\u6389\uFF08\u5B9E\u6D4B scrollHeight 58 / clientHeight 28\uFF09\u3002\u6362\u884C\u5FC5\u987B\u914D\u4E0A
+       \u81EA\u9002\u5E94\u9AD8\u5EA6\uFF0C\u624D\u65E2\u4FDD\u4F4F #170\u300C\u6A21\u578B\u836F\u4E38\u4E0D\u88AB\u538B\u6210 0 \u5BBD\u300D\uFF0C\u53C8\u4E0D\u541E\u6389\u63A7\u4EF6\u3002 */
+    height: auto !important;
+    min-height: 28px !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child {
     gap: 8px !important;
@@ -927,6 +934,25 @@ var MOBILE_CSS = `
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child > :nth-child(2) {
     flex: 0 1 auto !important;
     min-width: 0 !important;
+  }
+
+  /* --- \u62BD\u5C49\u91CC\u7684\u5DE5\u4F5C\u533A\u4E0D\u80FD\u88AB\u4E0A\u4E0B\u56FA\u5B9A\u533A\u5757\u6324\u6CA1\uFF08issue #196\uFF09---
+     \u7A84\u5C4F\u62BD\u5C49\u9AD8\u5EA6\u56FA\u5B9A 100%\uFF0C\u4E0A\u90E8\u63D2\u4EF6\u5165\u53E3\u533A\u4E0E\u5E95\u90E8 footer \u90FD\u662F flex:none\uFF0C
+     \u4E2D\u95F4\u7684 regionArea \u662F flex:1; min-height:0\uFF0C\u5728\u77EE\u5C4F\uFF08\u5982 iPhone SE\uFF09\u4F1A\u88AB\u538B\u5230
+     0 \u9AD8\uFF0C\u4F1A\u8BDD\u5217\u8868\u5B8C\u5168\u70B9\u4E0D\u5230\u3002\u7ED9\u5DE5\u4F5C\u533A\u4E00\u4E2A\u4FDD\u5E95\u9AD8\u5EA6\uFF0C\u5E76\u8BA9\u5B83\u6240\u5728\u7684\u4FA7\u680F\u5217\u53EF\u6EDA\u52A8\u3002
+     \u7528 :has(> ...) \u5B9A\u4F4D\u5217\u6839\uFF1AsidebarCol \u4E0E\u771F\u6B63\u7684\u4FA7\u680F\u6839\u4E4B\u95F4\u9694\u7740\u4E00\u5C42
+     display:contents \u7684\u63D2\u69FD\u5305\u88C5\uFF0C\u7528\u5B50\u5143\u7D20\u5E8F\u53F7\u4F1A\u9009\u9519\u3002 */
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"]) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: none !important;
+  }
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"])::-webkit-scrollbar {
+    display: none !important;
+  }
+  [data-mobile-nav="frame"] [class$="_regionArea"] {
+    min-height: min(55vh, 420px) !important;
   }
 
   /* --- Composer popups as bottom sheets on mobile ---
@@ -1946,6 +1972,7 @@ var zh2 = {
   "resetFailed": "\u274C \u6062\u590D\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5",
   "lanTitle": "\u{1F4F6} \u5C40\u57DF\u7F51\uFF08\u540C\u4E00 WiFi\uFF09",
   "lanHint": "\u624B\u673A\u8FDE\u63A5\u540C\u4E00 WiFi \u540E\u626B\u7801\u5373\u53EF\u6253\u5F00",
+  "qrFailed": "\u4E8C\u7EF4\u7801\u751F\u6210\u5931\u8D25\uFF1A\u901A\u5E38\u662F\u7F3A\u5C11 qrcode \u4F9D\u8D56\u3002\u8BF7\u7528 dsh plugin add \u5B89\u88C5\uFF0C\u6216\u5728\u63D2\u4EF6\u76EE\u5F55\u6267\u884C npm install --omit=dev \u540E\u91CD\u542F",
   "lanAccess": "\u5C40\u57DF\u7F51\u8BBF\u95EE",
   "lanDisabledHint": "\u{1F512} \u5C40\u57DF\u7F51\u8BBF\u95EE\u5DF2\u5173\u95ED\uFF1A\u624B\u673A\u626B\u7801/\u94FE\u63A5\u5747\u4E0D\u53EF\u7528\uFF08\u516C\u7F51\u4E0D\u53D7\u5F71\u54CD\uFF09\u3002\u70B9\u300C\u5F00\u300D\u6062\u590D\u3002",
   "lanToggleTitleOff": "\u5173\u95ED\u5C40\u57DF\u7F51\u8BBF\u95EE",
@@ -2048,6 +2075,7 @@ var en2 = {
   "resetFailed": "\u274C Reset failed \u2014 please retry",
   "lanTitle": "\u{1F4F6} LAN (same Wi-Fi)",
   "lanHint": "Scan to open once your phone is on the same Wi-Fi",
+  "qrFailed": "QR generation failed: the qrcode dependency is usually missing. Install via dsh plugin add, or run npm install --omit=dev in the plugin directory and restart",
   "lanAccess": "LAN access",
   "lanDisabledHint": '\u{1F512} LAN access is off \u2014 the QR code and link are unavailable (public access is unaffected). Tap "On" to restore.',
   "lanToggleTitleOff": "Turn off LAN access",
@@ -2150,6 +2178,7 @@ var ja2 = {
   "resetFailed": "\u274C \u30EA\u30BB\u30C3\u30C8\u306B\u5931\u6557\u3057\u307E\u3057\u305F \u2014 \u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044",
   "lanTitle": "\u{1F4F6} LAN\uFF08\u540C\u3058 Wi-Fi\uFF09",
   "lanHint": "\u30B9\u30DE\u30DB\u3092\u540C\u3058 Wi-Fi \u306B\u63A5\u7D9A\u3057\u3066 QR \u30B3\u30FC\u30C9\u3092\u8AAD\u307F\u53D6\u3063\u3066\u304F\u3060\u3055\u3044",
+  "qrFailed": "QR \u30B3\u30FC\u30C9\u306E\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A\u591A\u304F\u306F qrcode \u4F9D\u5B58\u306E\u4E0D\u8DB3\u3067\u3059\u3002dsh plugin add \u3067\u5C0E\u5165\u3059\u308B\u304B\u3001\u30D7\u30E9\u30B0\u30A4\u30F3\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3067 npm install --omit=dev \u3092\u5B9F\u884C\u3057\u3066\u518D\u8D77\u52D5\u3057\u3066\u304F\u3060\u3055\u3044",
   "lanAccess": "LAN \u30A2\u30AF\u30BB\u30B9",
   "lanDisabledHint": "\u{1F512} LAN \u30A2\u30AF\u30BB\u30B9\u306F\u30AA\u30D5\u3067\u3059\uFF1A\u30B9\u30DE\u30DB\u306E QR \u30B3\u30FC\u30C9\uFF0F\u30EA\u30F3\u30AF\u306F\u4F7F\u3048\u307E\u305B\u3093\uFF08\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002\u300C\u30AA\u30F3\u300D\u3092\u62BC\u3059\u3068\u5FA9\u65E7\u3057\u307E\u3059\u3002",
   "lanToggleTitleOff": "LAN \u30A2\u30AF\u30BB\u30B9\u3092\u30AA\u30D5\u306B\u3057\u307E\u3059\u304B",
@@ -2564,10 +2593,14 @@ function PocketSettingsTab({ rpcCall, t }) {
     style: { boxSizing: "border-box", flexShrink: 0, width: 36, height: 20, padding: 2, border: 0, borderRadius: 999, cornerShape: "round", position: "relative", cursor: "pointer", font: "inherit", background: on ? "var(--dsw-alias-brand-primary, #e6e8eb)" : "var(--dsw-alias-border-l3, #3a3f46)", transition: "background 120ms ease" },
     onClick
   }, (0, import_react2.createElement)("span", { style: { display: "block", width: 16, height: 16, borderRadius: "50%", cornerShape: "round", background: on ? "var(--dsw-alias-label-primary-foreground, #0f1115)" : "var(--dsw-alias-switch-thumb, #8b9198)", transition: "transform 120ms ease", transform: on ? "translateX(16px)" : "translateX(0)" } }));
-  const qrArea = (src, url, hint) => (0, import_react2.createElement)(
+  const qrArea = (src, url, hint, missingText) => (0, import_react2.createElement)(
     "div",
     { style: { background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 10, padding: "10px 12px", textAlign: "center", margin: "10px 0" } },
-    (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }),
+    src ? (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }) : (0, import_react2.createElement)("div", {
+      role: "alert",
+      "data-pocket-qr-error": "1",
+      style: { ...styles.qr, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 14, fontSize: 12, lineHeight: 1.6, textAlign: "left", color: "var(--dsw-alias-label-primary,inherit)" }
+    }, missingText),
     (0, import_react2.createElement)("div", { style: styles.code }, url),
     (0, import_react2.createElement)("div", { style: styles.muted }, hint)
   );
@@ -2654,7 +2687,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       status?.lanEnabled === false ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("lanDisabledHint")) : lanUrl ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.lanQr, lanUrl, t("lanHint")),
+        qrArea(status.lanQr, lanUrl, t("lanHint"), t("qrFailed")),
         // 访问密码行：开关 + 值（关闭时提示直连）
         row(
           t("lanPin"),
@@ -2728,7 +2761,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       tunnelUrl ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint")),
+        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint"), t("qrFailed")),
         // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
         (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")),
         // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
