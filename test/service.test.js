@@ -101,6 +101,19 @@ test('selectLanIPv4：空接口表返回 null', () => {
   assert.equal(selectLanIPv4({}), null);
 });
 
+test('selectLanIPv4（blacklist）：按网卡名或 IP 忽略，排除 VirtualBox host-only 后选到 WLAN', () => {
+  const list = ifaces([
+    ['以太网 8', '192.168.56.1'],
+    ['WLAN', '192.168.5.19'],
+  ]);
+  assert.equal(selectLanIPv4(list), '192.168.56.1', '无黑名单时按原逻辑（平局选枚举第一个）');
+  assert.equal(selectLanIPv4(list, ['以太网 8']), '192.168.5.19', '按网卡名忽略');
+  assert.equal(selectLanIPv4(list, ['192.168.56.1']), '192.168.5.19', '按 IP 忽略');
+  assert.equal(selectLanIPv4(list, ['以太网 8', '192.168.56.1']), '192.168.5.19', '两者混用');
+  assert.equal(selectLanIPv4(list, ['不存在的网卡']), '192.168.56.1', '未命中的条目无影响');
+  assert.equal(selectLanIPv4(list, []), '192.168.56.1', '空黑名单无影响');
+});
+
 test('selectLanIPv4（issue #176）：Windows ICS / 移动热点虚拟网卡 本地连接* N 不被当物理网卡', () => {
   // 模拟 Windows 开热点：ICS 虚拟适配器 本地连接* 2（192.168.137.1，固定保留段），
   // 真实 WLAN 在另一私网段。ICS 网卡常排在 WLAN 之前（枚举顺序），旧实现会选到不可达的 137.1。
