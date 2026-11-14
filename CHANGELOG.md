@@ -1,3 +1,26 @@
+# [2.13.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.12.0...v2.13.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* **client:** 二维码失败提示、composer 几何与抽屉工作区高度 ([#181](https://github.com/shaobeichen/dsh-pocket/issues/181) [#196](https://github.com/shaobeichen/dsh-pocket/issues/196) [#203](https://github.com/shaobeichen/dsh-pocket/issues/203)) ([aa9e28c](https://github.com/shaobeichen/dsh-pocket/commit/aa9e28c9cf7a0cdc347e72134a5f0ed329019249)), closes [#211](https://github.com/shaobeichen/dsh-pocket/issues/211) [#170](https://github.com/shaobeichen/dsh-pocket/issues/170)
+* **client:** 公网开启失败只在「公网访问」卡片内显示一次错误 ([#194](https://github.com/shaobeichen/dsh-pocket/issues/194)) ([1db3fa5](https://github.com/shaobeichen/dsh-pocket/commit/1db3fa591a7b3428d3d490f3a9b4666eabd01122)), closes [#159](https://github.com/shaobeichen/dsh-pocket/issues/159)
+* **mobile:** 会话头部放不下时改为横向滚动，不再让按钮互相压盖 ([#198](https://github.com/shaobeichen/dsh-pocket/issues/198)) ([f0bc21e](https://github.com/shaobeichen/dsh-pocket/commit/f0bc21e98cf3dfcbbaece0b2d1f38a5fca11019f))
+* **mobile:** 只在桌面宿主隐藏「添加工作区」，CLI/Linux 保留入口 ([#205](https://github.com/shaobeichen/dsh-pocket/issues/205)) ([458a79d](https://github.com/shaobeichen/dsh-pocket/commit/458a79d1932c7d28d307647d34446aae334c7703)), closes [#197](https://github.com/shaobeichen/dsh-pocket/issues/197)
+* **mobile:** 清理过时的文件链接处理（去掉「无法打开」拦截与「复制」按钮，删除 pocket.fileRead） ([#197](https://github.com/shaobeichen/dsh-pocket/issues/197)) ([f8c40d6](https://github.com/shaobeichen/dsh-pocket/commit/f8c40d6e1a5ca74b215c53f942a86082a4b5c556))
+* **mobile:** 让 body 级 portal 浮层压过抽屉，修复「更多」菜单被遮挡 ([#191](https://github.com/shaobeichen/dsh-pocket/issues/191)) ([e1a24a1](https://github.com/shaobeichen/dsh-pocket/commit/e1a24a1a3f231d120fae57a6ec5138c23a8f19ba))
+* **mobile:** 适配 DSH 0.2.2 自带抽屉，按类名定位 AppFrame 列 ([#200](https://github.com/shaobeichen/dsh-pocket/issues/200)) ([6db75aa](https://github.com/shaobeichen/dsh-pocket/commit/6db75aace0344dea1704173cc50b4d758c85743e)), closes [191/#198](https://github.com/shaobeichen/dsh-pocket/issues/198) [#191](https://github.com/shaobeichen/dsh-pocket/issues/191) [179/#215](https://github.com/shaobeichen/dsh-pocket/issues/215) [#207](https://github.com/shaobeichen/dsh-pocket/issues/207) [#208](https://github.com/shaobeichen/dsh-pocket/issues/208) [#209](https://github.com/shaobeichen/dsh-pocket/issues/209) [#222](https://github.com/shaobeichen/dsh-pocket/issues/222)
+* **proxy:** recover rejected DSH browser sessions ([#217](https://github.com/shaobeichen/dsh-pocket/issues/217)) ([0ad6c4b](https://github.com/shaobeichen/dsh-pocket/commit/0ad6c4b1929123e020d59c4884e225eba70840e2))
+* **proxy:** 精确判定会话 cookie 并放宽 WS 心跳容忍度 ([#185](https://github.com/shaobeichen/dsh-pocket/issues/185) [#221](https://github.com/shaobeichen/dsh-pocket/issues/221)) ([7b7cc7f](https://github.com/shaobeichen/dsh-pocket/commit/7b7cc7fe8c1529d59ca000e066f3ab748749976c))
+
+
+### Features
+
+* **i18n:** add Japanese (ja) locale ([#192](https://github.com/shaobeichen/dsh-pocket/issues/192)) ([f0236cc](https://github.com/shaobeichen/dsh-pocket/commit/f0236cc80d117f9efa99844b937adc114897eee0))
+* **settings:** mask access PINs by default with show/hide toggle ([#179](https://github.com/shaobeichen/dsh-pocket/issues/179)) ([88a1429](https://github.com/shaobeichen/dsh-pocket/commit/88a1429981e8a44df1dd51f76d12912f14ab7beb))
+* **tunnel:** 就绪度探活 + 自动重建，修复「进程活着但边缘失联」导致手机 1016 且不自愈 ([#215](https://github.com/shaobeichen/dsh-pocket/issues/215)) ([3c89245](https://github.com/shaobeichen/dsh-pocket/commit/3c89245c6fac3241f6572b705b63009b7370295e)), closes [#45](https://github.com/shaobeichen/dsh-pocket/issues/45)
+* 支持 settings.json blacklist 字段，按网卡名或 IP 排除自动选择的网卡 ([#182](https://github.com/shaobeichen/dsh-pocket/issues/182)) ([9eb8f69](https://github.com/shaobeichen/dsh-pocket/commit/9eb8f693a337311395b4064c567851e8d5abd828))
+
 # [2.12.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.11.0...v2.12.0) (2026-10-17)
 
 
