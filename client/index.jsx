@@ -410,15 +410,18 @@ function PocketSettingsTab({ rpcCall, t }) {
   // 卡片内主内容：二维码 + 地址 + 提示
   // issue #203：后端生成二维码失败（最常见是源码直装缺 qrcode 依赖）时 status 里是
   // null。空 src 的 <img> 只是一块空白，地址文字却照常显示，用户只会以为「二维码坏了」。
-  // 这里把失败原因说清楚，给出可操作的排查方向；成功时行为不变。
+  // 只在「地址已有、但二维码为空」时提示缺依赖 —— 地址还没就绪时不应甩一个
+  // 依赖错误给用户，那只是启动中的正常状态，留一个占位框即可。
   const qrArea = (src, url, hint, missingText) => h('div', { style: { background: 'var(--dsw-alias-bg-layer-2,#f3f4f6)', borderRadius: 10, padding: '10px 12px', textAlign: 'center', margin: '10px 0' } },
     src
       ? h('img', { src, alt: 'QR', style: styles.qr })
-      : h('div', {
-          role: 'alert',
-          'data-pocket-qr-error': '1',
-          style: { ...styles.qr, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14, fontSize: 12, lineHeight: 1.6, textAlign: 'left', color: 'var(--dsw-alias-label-primary,inherit)' },
-        }, missingText),
+      : url
+        ? h('div', {
+            role: 'alert',
+            'data-pocket-qr-error': '1',
+            style: { ...styles.qr, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14, fontSize: 12, lineHeight: 1.6, textAlign: 'left', color: 'var(--dsw-alias-label-primary,inherit)' },
+          }, missingText)
+        : h('div', { style: styles.qr, 'data-pocket-qr-pending': '1' }),
     h('div', { style: styles.code }, url),
     h('div', { style: styles.muted }, hint));
   // 设置行：上分隔线，内部第一行 = 左标签 + 右操作；extra 作为第二段渲染
@@ -717,7 +720,7 @@ export function apply(ctx) {
   const rpcCall = (endpoint, payload, signal) =>
     ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
 
-  // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en），并绑定一个随当前 locale 切换的 t()。
+  // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en/ja），并绑定一个随当前 locale 切换的 t()。
   const translate = ctx.locale.bind(POCKET_NS);
   ctx.effect(() => ctx.locale.register(POCKET_NS, { zh: POCKET_ZH, en: POCKET_EN, ja: POCKET_JA }), 'dsh-pocket: pocket locale dictionaries');
 

@@ -1110,14 +1110,13 @@ var MOBILE_CSS = `
     border-radius: 14px !important;
     animation: dsh-mobile-nav-sheet-in .22s var(--ds-ease-out, ease-in-out);
   }
-  /* The settings sheet's dimmed mask fades in with the panel (the mask is
-     the first child of the overlay that directly contains the sheet). */
-  :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
-    animation: dsh-mobile-nav-fade .18s var(--ds-ease-out, ease-in-out);
-  }
+  /* \u906E\u7F69\u6DE1\u5165\u539F\u672C\u5199\u5728 :has() \u91CC\u518D\u5D4C\u4E00\u5C42 :has() \u2014\u2014 CSS \u89C4\u8303\u4E0D\u5141\u8BB8\u5D4C\u5957 :has()\uFF0C
+     \u6574\u6761\u9009\u62E9\u5668\u65E0\u6548\u3001\u4ECE\u672A\u751F\u6548\uFF1B\u66F4\u7CDF\u7684\u662F\u5B83\u548C\u4E0B\u9762\u7684 reduced-motion \u89C4\u5219\u540C\u5904\u4E00\u4E2A
+     \u9017\u53F7\u7EC4\uFF0Cinvalid selector \u4F1A\u8BA9\u6574\u7EC4\u89C4\u5219\u4E00\u8D77\u88AB\u4E22\u5F03\u3002\u8FD9\u91CC\u5220\u6389\u6B7B\u89C4\u5219\uFF0C\u8BA9
+     reduced-motion \u771F\u6B63\u751F\u6548\u3002\u771F\u8981\u6062\u590D\u906E\u7F69\u52A8\u753B\uFF0C\u8BF7\u7528\u5BBF\u4E3B\u66B4\u9732\u7684\u7A33\u5B9A data \u94A9\u5B50\uFF0C
+     \u4E0D\u8981\u518D\u8D4C\u5D4C\u5957\u9009\u62E9\u5668\u3002 */
   @media (prefers-reduced-motion: reduce) {
-    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])),
-    :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
+    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])) {
       animation: none !important;
     }
   }
@@ -1877,10 +1876,10 @@ function mobileApply(ctx) {
       try {
         const result = await ctx.connection.rpc.call(POCKET_RPC_CHANNEL, POCKET_ENDPOINTS.status, {});
         if (!active) return;
-        if (result?.ok === true && result.value?.desktop === false) return;
-        dispose = startAddWorkspaceHider();
+        if (result?.ok === true && result.value?.desktop === true) {
+          dispose = startAddWorkspaceHider();
+        }
       } catch {
-        if (active) dispose = startAddWorkspaceHider();
       }
     };
     void load();
@@ -2612,11 +2611,11 @@ function PocketSettingsTab({ rpcCall, t }) {
   const qrArea = (src, url, hint, missingText) => (0, import_react2.createElement)(
     "div",
     { style: { background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 10, padding: "10px 12px", textAlign: "center", margin: "10px 0" } },
-    src ? (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }) : (0, import_react2.createElement)("div", {
+    src ? (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }) : url ? (0, import_react2.createElement)("div", {
       role: "alert",
       "data-pocket-qr-error": "1",
       style: { ...styles.qr, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 14, fontSize: 12, lineHeight: 1.6, textAlign: "left", color: "var(--dsw-alias-label-primary,inherit)" }
-    }, missingText),
+    }, missingText) : (0, import_react2.createElement)("div", { style: styles.qr, "data-pocket-qr-pending": "1" }),
     (0, import_react2.createElement)("div", { style: styles.code }, url),
     (0, import_react2.createElement)("div", { style: styles.muted }, hint)
   );

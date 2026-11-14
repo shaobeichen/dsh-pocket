@@ -618,14 +618,13 @@ export const MOBILE_CSS = `
     border-radius: 14px !important;
     animation: dsh-mobile-nav-sheet-in .22s var(--ds-ease-out, ease-in-out);
   }
-  /* The settings sheet's dimmed mask fades in with the panel (the mask is
-     the first child of the overlay that directly contains the sheet). */
-  :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
-    animation: dsh-mobile-nav-fade .18s var(--ds-ease-out, ease-in-out);
-  }
+  /* 遮罩淡入原本写在 :has() 里再嵌一层 :has() —— CSS 规范不允许嵌套 :has()，
+     整条选择器无效、从未生效；更糟的是它和下面的 reduced-motion 规则同处一个
+     逗号组，invalid selector 会让整组规则一起被丢弃。这里删掉死规则，让
+     reduced-motion 真正生效。真要恢复遮罩动画，请用宿主暴露的稳定 data 钩子，
+     不要再赌嵌套选择器。 */
   @media (prefers-reduced-motion: reduce) {
-    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])),
-    :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
+    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])) {
       animation: none !important;
     }
   }

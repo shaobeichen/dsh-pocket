@@ -223,10 +223,12 @@ test('service: logs QR generation failures while keeping status available', asyn
   const status = await service.status();
 
   assert.equal(status.lanQr, null);
-  assert.ok(warnings.some(([message, code, detail]) =>
-    message === 'dsh-pocket: QR generation failed (%s): %s'
+  assert.ok(warnings.some(([message, code, detail, codeAgain, detailAgain]) =>
+    /^dsh-pocket: QR generation failed/.test(message)
+      && message.includes('二维码生成失败')
       && code === 'MODULE_NOT_FOUND'
-      && detail === 'QR encoder unavailable'));
+      && detail === 'QR encoder unavailable'
+      && codeAgain === code && detailAgain === detail));
 
   await service.dispose();
 });

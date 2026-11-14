@@ -288,11 +288,13 @@ export function mobileApply(ctx): void {
     }
   }, 'dsh-mobile-nav: sheet rise animation replay')
 
-  // 隐藏「添加工作区」入口：只在**桌面宿主**的窄屏上隐藏（issue #17 + #205）。
+  // 隐藏「添加工作区」入口：只在**明确是桌面宿主**的窄屏上隐藏（issue #17 + #205）。
   // 桌面宿主用的是系统文件选择器，手机上点开必然失败；但 `dsh web` CLI / Linux
   // 走的是网页文件选择器，手机上同样能选路径、能新建工作区。原来一律按屏幕宽度
   // 隐藏，等于把可用功能藏掉了。status 里的 desktop 字段就是宿主类型，按设备判定。
-  // 读不到状态时保守起见保持旧行为（隐藏），避免桌面宿主上露出必失败的入口。
+  // 只有拿到 desktop === true 才隐藏；读不到状态/请求失败/字段缺失一律保留入口 ——
+  // fail 方向必须朝「不隐藏」，否则 CLI/Linux 那条路在 RPC 抖动时会重新被藏掉。
+  // 代价仅是桌面宿主在极少数 RPC 失败时露出一个点了会失败的按钮，可接受。
   ctx.effect(() => {
     if (!narrow.matches) return () => {}
     let active = true
@@ -304,10 +306,11 @@ export function mobileApply(ctx): void {
           value?: { desktop?: boolean }
         }
         if (!active) return
-        if (result?.ok === true && result.value?.desktop === false) return
-        dispose = startAddWorkspaceHider()
+        if (result?.ok === true && result.value?.desktop === true) {
+          dispose = startAddWorkspaceHider()
+        }
       } catch {
-        if (active) dispose = startAddWorkspaceHider()
+        // 状态不可用：保留入口，不隐藏（见上）
       }
     }
     void load()

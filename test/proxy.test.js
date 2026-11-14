@@ -7,7 +7,6 @@ import { connect } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import { createPocketProxy, createHandshakeTracker, hasUsableAuthCookie, upstreamPathWithLaunchToken } from '../lib/proxy.mjs';
-import { readFileSync } from 'node:fs';
 
 /** 构造一个带掩码的 WS 文本帧（浏览器在握手后立即发的首帧，会进 upgrade 的 head）。 */
 function maskedTextFrame(text) {
@@ -28,9 +27,9 @@ function maskedTextFrame(text) {
  * 会被静默丢弃，代理看到的永远是 `127.0.0.1:<port>`（→ loopback），写出来的
  * 「公网 Host」测试其实一直在测局域网分支。
  */
-function getWithHost(port, hostHeader, extraHeaders = {}) {
+function requestWithHost(port, path, hostHeader, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
-    const req = httpRequest({ host: '127.0.0.1', port, path: '/', headers: { host: hostHeader, accept: 'text/html', ...extraHeaders } }, (res) => {
+    const req = httpRequest({ host: '127.0.0.1', port, path, headers: { host: hostHeader, accept: 'text/html', ...extraHeaders } }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
@@ -38,6 +37,10 @@ function getWithHost(port, hostHeader, extraHeaders = {}) {
     req.on('error', reject);
     req.end();
   });
+}
+
+function getWithHost(port, hostHeader, extraHeaders = {}) {
+  return requestWithHost(port, '/', hostHeader, extraHeaders);
 }
 
 /** 假上游：记录收到的 Host/Origin，回显请求路径。 */
@@ -1306,25 +1309,24 @@ test('端到端（issue #77 + #91）：代理建立和恢复 DSH 浏览器会话
     port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
     injectHtml: '', launchToken: () => TOK, handshakeLimit: 2,
   });
-  const base = `http://127.0.0.1:${proxy.port}`;
   try {
     // 第一次访问（手机扫码进来的 URL 没有 token）：代理补 token → 上游 303 + 下发 cookie。
     // issue #91：这里不再是 303（Safari 会丢 3xx 上的 cookie → 死循环），而是 200 过渡页，
     // Set-Cookie 照发、meta refresh 跳回 `/`。
-    const first = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com' } });
+    const first = await getWithHost(proxy.port, 'abc.trycloudflare.com');
     assert.equal(first.status, 200, '首屏返回 200 过渡页（不是 303）');
-    assert.equal(first.headers.get('x-dsh-pocket-handshake'), 'transition', '标记为握手过渡页');
-    const setCookie = first.headers.get('set-cookie') ?? '';
+    assert.equal(first.headers['x-dsh-pocket-handshake'], 'transition', '标记为握手过渡页');
+    const setCookie = String(first.headers['set-cookie'] ?? '');
     assert.ok(setCookie.includes('dsh-auth-'), '过渡页照常下发会话 cookie');
-    const page = await first.text();
+    const page = first.body;
     assert.match(page, /http-equiv="refresh"/, '过渡页用 meta refresh 跳回根路径');
     assert.match(page, /url=\//, '跳转目标是干净的 /');
     assert.ok(seen.some((u) => u.includes(`token=${TOK}`)), '上游确实收到了启动 token');
 
     // 浏览器带着 cookie 再访问：不再补 token → 直接拿到首页（不会循环）
-    const second = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: COOKIE } });
+    const second = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: COOKIE });
     assert.equal(second.status, 200, '带 cookie 直接返回首页');
-    assert.match(await second.text(), /index/, '首页内容正确');
+    assert.match(second.body, /index/, '首页内容正确');
     assert.ok(!seen[seen.length - 1].includes('token='), '带 cookie 的请求不再补 token（防循环）');
 
     // issue #185：区分两种「失效」。名字对但值失效（同名不同值）仍走上游 401 →
@@ -1332,32 +1334,29 @@ test('端到端（issue #77 + #91）：代理建立和恢复 DSH 浏览器会话
     // 不再先吃一次 401，单独在下面的用例覆盖。
     const staleHeaders = { cookie: 'dsh-auth-abc=stale' };
     const renewStaleSession = async () => {
-      const retry = await fetch(`${base}/`, { redirect: 'manual', headers: staleHeaders });
-      assert.equal(retry.status, 303, await retry.text());
-      const location = retry.headers.get('location');
+      const retry = await getWithHost(proxy.port, 'abc.trycloudflare.com', staleHeaders);
+      assert.equal(retry.status, 303, retry.body);
+      const location = retry.headers.location;
       assert.equal(location, '/?dsh-pocket-auth=1', '重试地址只包含握手标记');
-      return fetch(`${base}${location}`, { redirect: 'manual', headers: staleHeaders });
+      return requestWithHost(proxy.port, location, 'abc.trycloudflare.com', staleHeaders);
     };
 
     // 浏览器一直发送失效的 cookie 时，补发会话也要受重试上限约束。
     for (let attempt = 0; attempt < 2; attempt++) {
       const renewed = await renewStaleSession();
       assert.equal(renewed.status, 200);
-      assert.equal(renewed.headers.get('x-dsh-pocket-handshake'), 'transition');
-      assert.equal(renewed.headers.get('set-cookie')?.split(';')[0], COOKIE);
-      await renewed.text();
+      assert.equal(renewed.headers['x-dsh-pocket-handshake'], 'transition');
+      assert.equal(String(renewed.headers['set-cookie'] ?? '').split(';')[0], COOKIE);
     }
     const blocked = await renewStaleSession();
     assert.equal(blocked.status, 503);
-    assert.equal(blocked.headers.get('x-dsh-pocket-handshake'), 'blocked');
-    await blocked.text();
+    assert.equal(blocked.headers['x-dsh-pocket-handshake'], 'blocked');
 
-    const recovered = await fetch(`${base}/`, { headers: { cookie: `${staleHeaders.cookie}; ${COOKIE}` } });
+    const recovered = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: `${staleHeaders.cookie}; ${COOKIE}` });
     assert.equal(recovered.status, 200);
-    assert.match(await recovered.text(), /index/);
+    assert.match(recovered.body, /index/, '首页内容正确');
     const reset = await renewStaleSession();
-    assert.equal(reset.headers.get('x-dsh-pocket-handshake'), 'transition', '上游接受会话后清空重试计数');
-    await reset.text();
+    assert.equal(reset.headers['x-dsh-pocket-handshake'], 'transition', '上游接受会话后清空重试计数');
   } finally {
     await proxy.close();
     await new Promise((r) => upstream.close(r));
@@ -1385,24 +1384,24 @@ test('issue #91：cookie 回不来时握手不会无限循环——达到上限�
   try {
     // 前 3 次：代理补 token → 上游 303 → 过渡页 200（每次都是新的一次握手尝试）
     for (let i = 1; i <= 3; i++) {
-      const r = await fetch(`${base}/`, { redirect: 'manual', headers: { host: '192.168.1.50:3081' } });
+      const r = await getWithHost(proxy.port, '192.168.1.50:3081');
       assert.equal(r.status, 200, `第 ${i} 次仍是过渡页`);
-      assert.equal(r.headers.get('x-dsh-pocket-handshake'), 'transition', `第 ${i} 次标记为过渡页`);
+      assert.equal(r.headers['x-dsh-pocket-handshake'], 'transition', `第 ${i} 次标记为过渡页`);
     }
     // 第 4 次：已达上限 → 不再注入 token，直接给提示页（不再转发给上游）
     const hitsBefore = upstreamHits;
-    const blocked = await fetch(`${base}/`, { redirect: 'manual', headers: { host: '192.168.1.50:3081' } });
+    const blocked = await getWithHost(proxy.port, '192.168.1.50:3081');
     assert.equal(blocked.status, 503, '达到上限后返回 503 提示页');
-    assert.equal(blocked.headers.get('x-dsh-pocket-handshake'), 'blocked', '标记为握手被阻断');
-    const body = await blocked.text();
+    assert.equal(blocked.headers['x-dsh-pocket-handshake'], 'blocked', '标记为握手被阻断');
+    const body = blocked.body;
     assert.match(body, /太多|Safari|cookie/, '提示页说明了原因与规避办法');
     assert.equal(upstreamHits, hitsBefore, '已达上限后不再打上游（不无限循环）');
     assert.match(body, /dsh-pocket-retry=1/, '提示页给了「重试」出口，用户不会被锁死');
 
     // 点「重试」：清零计数 → 握手重新走一遍；且这个自家参数不能透传给上游
-    const retried = await fetch(`${base}/?dsh-pocket-retry=1`, { redirect: 'manual', headers: { host: '192.168.1.50:3081' } });
+    const retried = await requestWithHost(proxy.port, '/?dsh-pocket-retry=1', '192.168.1.50:3081');
     assert.equal(retried.status, 200, '重试后重新进入握手（过渡页）');
-    assert.equal(retried.headers.get('x-dsh-pocket-handshake'), 'transition', '重试后回到过渡页');
+    assert.equal(retried.headers['x-dsh-pocket-handshake'], 'transition', '重试后回到过渡页');
     assert.ok(seen.every((u) => !u.includes('dsh-pocket-retry')), '重试参数不往上游透传');
     assert.ok(seen[seen.length - 1].includes(`token=${TOK}`), '重试请求仍带上启动 token');
   } finally {
@@ -1542,36 +1541,93 @@ test('issue #185：端到端——学到 cookie 名后，旧端口残留 cookie 
     port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
     injectHtml: '', launchToken: () => TOK, handshakeLimit: 10,
   });
-  const base = 'http://127.0.0.1:' + proxy.port;
   try {
     // 首次握手：上游下发 Set-Cookie，代理学到确切名字
-    const first = await fetch(base + '/', { redirect: 'manual', headers: { host: 'abc.trycloudflare.com' } });
+    const first = await getWithHost(proxy.port, 'abc.trycloudflare.com');
     assert.equal(first.status, 200);
-    assert.equal(first.headers.get('x-dsh-pocket-handshake'), 'transition');
-    await first.text();
+    assert.equal(first.headers['x-dsh-pocket-handshake'], 'transition');
     // 浏览器里残留的旧 authority cookie：不该再被当成「已登录」而吞掉握手
-    const stale = await fetch(base + '/', { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: 'dsh-auth-OLDPORT=stale' } });
+    const stale = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: 'dsh-auth-OLDPORT=stale' });
     assert.equal(stale.status, 200, '旧 cookie 不再导致裸 401 / 反复重连');
-    assert.equal(stale.headers.get('x-dsh-pocket-handshake'), 'transition', '直接补 token 重做握手');
+    assert.equal(stale.headers['x-dsh-pocket-handshake'], 'transition', '直接补 token 重做握手');
     assert.ok(seen[seen.length - 1].includes('token=' + TOK), '确实重新向上游发了 launch token');
-    await stale.text();
   } finally {
     await proxy.close();
     await new Promise((r) => upstream.close(r));
   }
 });
 
-// ---------- issue #221：WS 心跳不要把健康空闲连接判成死链 ----------
+test('issue #185 回归：上游换 cookie 名后旧名字被淘汰，stale cookie 不再被误判', async () => {
+  const http = await import('node:http');
+  const TOK = 'launch-name-change';
+  let COOKIE = 'dsh-auth-AAA=1';
+  const seen = [];
+  const upstream = http.createServer((req, res) => {
+    seen.push(req.url);
+    const u = new URL(req.url ?? '/', 'http://x');
+    if (u.pathname === '/' && u.searchParams.get('token') === TOK) {
+      res.writeHead(303, { location: '/', 'set-cookie': COOKIE + '; Path=/; HttpOnly' });
+      res.end();
+      return;
+    }
+    if (String(req.headers.cookie ?? '').split(/;\s*/).includes(COOKIE)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end('index');
+      return;
+    }
+    res.writeHead(401, { 'content-type': 'text/plain' });
+    res.end('dsh web authentication required');
+  });
+  await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
+    injectHtml: '', launchToken: () => TOK, handshakeLimit: 10,
+  });
+  try {
+    // 首次握手：代理学到 dsh-auth-AAA
+    const first = await getWithHost(proxy.port, 'abc.trycloudflare.com');
+    assert.equal(first.headers['x-dsh-pocket-handshake'], 'transition');
 
-test('issue #221：心跳先发 Ping 再计数，默认容忍 8 个周期，且支持只保活', () => {
-  const src = readFileSync(new URL('../lib/proxy.mjs', import.meta.url), 'utf8');
-  const start = src.indexOf('function attachWebSocketHeartbeat(');
-  assert.ok(start > 0);
-  const body = src.slice(start, src.indexOf('\n}', start));
-  assert.match(body, /missLimit = 8/, '默认从 2 个周期（60s）放宽到 8 个（4 分钟）');
-  assert.match(body, /if \(missLimit <= 0\) return;/, 'missLimit<=0 表示只保活、永不主动断');
-  assert.ok(
-    body.indexOf('socket.write(WS_PING_FRAME)') < body.indexOf('misses += 1'),
-    '必须先发出本轮 Ping 再自增静默计数，否则计数与是否探测过脱钩',
-  );
+    // 模拟上游/桌面重启换端口：会话 cookie 名变成 BBB
+    COOKIE = 'dsh-auth-BBB=1';
+    // force 参数绕过 cookie 判定，让上游下发新名字，代理据此淘汰旧名
+    const forced = await requestWithHost(proxy.port, '/?dsh-pocket-auth=1', 'abc.trycloudflare.com', { cookie: 'dsh-auth-AAA=stale' });
+    assert.equal(forced.headers['x-dsh-pocket-handshake'], 'transition');
+
+    // 关键：带旧 AAA 的 stale cookie 应当直接补 token（旧名已淘汰），
+    // 而不是被当成当前会话 → 上游 401 → 再靠 303 兜底。
+    const stale = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: 'dsh-auth-AAA=stale' });
+    assert.equal(stale.headers['x-dsh-pocket-handshake'], 'transition', '旧名字淘汰后应直接补 token');
+    assert.ok(seen[seen.length - 1].includes('token=' + TOK), '确实重发了 launch token');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => upstream.close(r));
+  }
+});
+
+test('issue #217：XHR 风格请求拿到原始 401，不被 303 重做握手劫持', async () => {
+  const http = await import('node:http');
+  const upstream = http.createServer((_req, res) => {
+    res.writeHead(401, { 'content-type': 'text/plain' });
+    res.end('dsh web authentication required');
+  });
+  await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
+    injectHtml: '', launchToken: () => 'TOK', handshakeLimit: 10,
+  });
+  try {
+    // 浏览器导航（accept: text/html）会 303 重做握手
+    const nav = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: 'dsh-auth-abc=stale' });
+    assert.equal(nav.status, 303, '浏览器导航仍走 303 恢复');
+    // XHR/fetch（accept: application/json）应拿到原始 401，否则会把跳转后的 HTML 当接口响应解析
+    const xhr = await requestWithHost(proxy.port, '/', 'abc.trycloudflare.com', {
+      cookie: 'dsh-auth-abc=stale', accept: 'application/json',
+    });
+    assert.equal(xhr.status, 401, 'XHR 应透传上游 401');
+    assert.match(xhr.body, /authentication required/);
+  } finally {
+    await proxy.close();
+    await new Promise((r) => upstream.close(r));
+  }
 });

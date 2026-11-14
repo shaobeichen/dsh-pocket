@@ -42,7 +42,8 @@ test('mobile-apply 已接线 startAddWorkspaceHider（窄屏生效、不再传 r
   assert.ok(apply.includes('if (!narrow.matches) return'), 'effect 必须受 narrow 门控');
   // issue #205：按宿主类型（status.desktop）判定，不再只按屏幕宽度一刀切
   assert.ok(apply.includes('POCKET_ENDPOINTS.status'), '要读 status 拿宿主类型');
-  assert.ok(apply.includes('result.value?.desktop === false'), 'dsh web CLI / Linux 上保留入口');
+  assert.ok(apply.includes('result.value?.desktop === true'), '只有桌面宿主（desktop=true）才隐藏');
+  assert.ok(!/catch\s*\{[^}]*startAddWorkspaceHider/.test(apply), 'RPC 失败时保留入口（CLI/Linux 不能复发）');
   assert.ok(!apply.includes('startFileGuard'), '不应再引用已删除的 fileGuard');
   assert.ok(!apply.includes('POCKET_ENDPOINTS.fileRead'), '不应再引用 fileRead 端点');
   assert.ok(!apply.includes('getWorkspaceCwd'), '不再需要解析工作区 cwd（只服务 fileRead）');

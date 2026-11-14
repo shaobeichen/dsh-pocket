@@ -417,6 +417,33 @@ test('issue #205：只在桌面宿主隐藏「添加工作区」，CLI/Linux 网
   const src = readFileSync(new URL('../client/mobile/mobile-apply.tsx', import.meta.url), 'utf8');
   const block = src.slice(src.indexOf('hide add-workspace on desktop hosts only') - 900, src.indexOf('hide add-workspace on desktop hosts only'));
   assert.match(block, /POCKET_ENDPOINTS\.status/, '要读 status 里的宿主类型，不能只看屏幕宽度');
-  assert.match(block, /result\.value\?\.desktop === false/, 'desktop=false（dsh web CLI / Linux）时不隐藏');
+  assert.match(block, /result\.value\?\.desktop === true/, '只有 desktop=true 才隐藏');
+  assert.ok(!/catch\s*\{[^}]*startAddWorkspaceHider/.test(block), 'RPC 失败时保留入口');
   assert.ok(!/if \(!narrow\.matches\) return \(\) => \{\}\s*\n\s*return startAddWorkspaceHider\(\)/.test(src), '不能一刀切按窄屏隐藏');
+});
+
+
+test('CSS 里不允许嵌套 :has()（会让整条逗号组规则被浏览器丢弃）', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  let at = 0;
+  let checked = 0;
+  while ((at = css.indexOf(':has(', at)) !== -1) {
+    let depth = 0;
+    let j = at + 5;
+    for (; j < css.length; j++) {
+      if (css[j] === '(') depth += 1;
+      else if (css[j] === ')') {
+        if (depth === 0) break;
+        depth -= 1;
+      }
+    }
+    const inner = css.slice(at + 5, j);
+    assert.ok(
+      !inner.includes(':has('),
+      '第 ' + (css.slice(0, at).split('\n').length) + ' 行出现嵌套 :has()：' + inner.slice(0, 70),
+    );
+    checked += 1;
+    at += 1;
+  }
+  assert.ok(checked > 5, '应当真的检查到了若干 :has() 规则');
 });
