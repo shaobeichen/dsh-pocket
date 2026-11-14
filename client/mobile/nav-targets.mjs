@@ -2,13 +2,29 @@
 // 引入（client 侧是 esbuild 打进 bundle 的，测试里没有 DOM 可用）。
 
 /**
- * 抽屉本体：AppFrame 的第一个网格子元素，即被拉成抽屉的侧边栏列。
+ * 抽屉本体：AppFrame 里被拉成抽屉的侧边栏列。
+ *
+ * 按类名后缀定位而不是"第几个子元素"：DSH 0.2.2 在窄屏给 frame 插了一个
+ * 遮罩（data-sidebar-mask）当第一个子元素，序号定位会指到遮罩上 ——
+ * drawer.contains(target) 对抽屉内容一律为 false，"点抽屉外就关"于是把
+ * 抽屉里每一次点击都当成外部点击，刚打开的菜单立刻随抽屉一起消失。
+ * 生成的类名形如 gURaQa_sidebarCol，哈希前缀每次构建都会变，后缀稳定。
+ *
  * @type {string}
  */
-export const DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child'
+export const DRAWER_SELECTOR = '[data-mobile-nav="frame"] > [class*="_sidebarCol"]'
 
-/** 抽屉开关（会话头部那颗按钮）——点它不该被"点抽屉外就关"二次触发。 */
-export const TOGGLE_SELECTOR = '[data-mobile-nav="toggle"]'
+/**
+ * 抽屉开关 —— 点它不该被"点抽屉外就关"二次触发。
+ *
+ * - data-mobile-nav="toggle"：本插件自绘的那颗（DSH 自带开合按钮之前的宿主版本）。
+ * - data-sidebar-opener：DSH 0.2.2 起在 frame 的 leading 座自带的开合按钮
+ *   （ui-sidebar HeaderLeadingControls.tsx:36）。它同样调 toggleSidebar()，
+ *   若不豁免，一次点击会被本插件和宿主各关/开一次，净效果是抽屉不动。
+ *
+ * @type {string}
+ */
+export const TOGGLE_SELECTOR = '[data-mobile-nav="toggle"], [data-sidebar-opener]'
 
 /**
  * 命中即视为导航的行：点它们要把屏幕让给刚打开的内容，所以顺带关抽屉。

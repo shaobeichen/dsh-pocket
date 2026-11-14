@@ -184,11 +184,18 @@ export const MOBILE_CSS = `
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
-  /* 主内容列（第 2 个网格子元素）在官方样式里有显式 grid-column: 2——
+  /* 主内容列在官方样式里有显式 grid-column: 2——
      网格被压缩成 [1fr, 0, 0] 后它会落在 0px 的第 2 轨，整个主界面被挤出
      视口（只剩背景图）。必须显式把它拉回第 1 轨（issue #5）。
-     第 3 列（details）保持 0 轨即可，无需处理。 */
-  [data-mobile-nav="frame"] > :nth-child(2) {
+     第 3 列（details）保持 0 轨即可，无需处理。
+
+     DSH 0.2.2 起这一行不能再按「第几个子元素」定位：官方 AppFrame 在窄屏
+     开启了自带的抽屉（.frame[data-sidebar-drawer]），并插入了一个
+     div[data-sidebar-mask] 作为 frame 的第一个子元素，于是
+     > :nth-child(2) 从主内容列变成了侧边栏列，主内容列留在 0px 的第 2 轨
+     —— 手机上整个会话界面消失（只剩背景）。改用官方类名后缀定位，与元素
+     顺序解耦（类名形如 gURaQa_centerCol，哈希前缀每次构建都会变）。 */
+  [data-mobile-nav="frame"] > [class*="_centerCol"] {
     grid-column: 1 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
@@ -216,8 +223,13 @@ export const MOBILE_CSS = `
      details pane 1000 and its full-screen frame ::after mask 1050 (issue
      #67: that mask sat on top of the 600 drawer and ate every tap). Still
      far under the fixed-position banners/toasts (z 9999) that float at the
-     viewport level. */
-  [data-mobile-nav="frame"] > :first-child {
+     viewport level.
+     Also positional-free since DSH 0.2.2: the first child is the native
+     div[data-sidebar-mask] in drawer mode, not the sidebar column, so the
+     drawer styling used to land on the mask (an opaque 92vw sheet) while the
+     real sidebar column stayed in the grid. Target the official class suffix
+     instead (gURaQa_sidebarCol; the hash prefix changes every build). */
+  [data-mobile-nav="frame"] > [class*="_sidebarCol"] {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
@@ -291,8 +303,17 @@ export const MOBILE_CSS = `
      overflow:hidden drawer to scrollLeft=102, and every static child (plus the
      fixed overlay) shifts 102px off-screen. With transform:none the overlay is
      viewport-anchored: it dims the full screen and the sheet sits at left:8. */
-  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child {
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > [class*="_sidebarCol"] {
     transform: none !important;
+  }
+
+  /* DSH 0.2.2's native drawer ships its own backdrop, and it is not a
+     passive layer: it calls toggleSidebar() on tap. We render our own
+     backdrop and close on outside taps in JS, so a tap on theirs toggles the
+     drawer twice (close then reopen) — the drawer looks stuck open. Drop it
+     and keep ours, exactly like the dsh-web-ui-all mask below (issue #67). */
+  [data-mobile-nav="frame"] > [data-sidebar-mask] {
+    display: none !important;
   }
 
   /* Kill a competing full-screen mask (issue #67).
@@ -507,6 +528,19 @@ export const MOBILE_CSS = `
     left: 8px !important;
     top: 12px !important;
     z-index: 2 !important;
+  }
+  /* DSH 0.2.2 ships its own narrow-screen drawer opener in the frame's leading
+     seat (button[data-sidebar-opener], ui-sidebar HeaderLeadingControls.tsx:36)
+     and mounts it for every phase whenever the frame is in drawer mode. It sits
+     in the very same top-left corner and calls the very same toggleSidebar(),
+     so keeping ours would stack two identical buttons in one spot plus a third
+     floating one under them. The host control wins; ours step aside.
+     Gated on :has() so a host WITHOUT an opener (pre-0.2.2) still gets both
+     fallbacks — the floating button is also the only opener on the hero page
+     there, since no session header exists to host the header toggle. */
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="toggle"],
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="fab"] {
+    display: none !important;
   }
   /* The Files action sits at the FAR RIGHT of the header so it reads as a
      distinct control from the directory toggle on the left (which opens

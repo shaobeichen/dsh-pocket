@@ -216,8 +216,8 @@ var import_react = require("react");
 var primitives2 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 
 // client/mobile/nav-targets.mjs
-var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child';
-var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"]';
+var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > [class*="_sidebarCol"]';
+var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"], [data-sidebar-opener]';
 var NAV_TARGETS = [
   "button[data-dsh-taskboard-entry]",
   "button[data-dsh-ssh-entry]",
@@ -676,11 +676,18 @@ var MOBILE_CSS = `
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
-  /* \u4E3B\u5185\u5BB9\u5217\uFF08\u7B2C 2 \u4E2A\u7F51\u683C\u5B50\u5143\u7D20\uFF09\u5728\u5B98\u65B9\u6837\u5F0F\u91CC\u6709\u663E\u5F0F grid-column: 2\u2014\u2014
+  /* \u4E3B\u5185\u5BB9\u5217\u5728\u5B98\u65B9\u6837\u5F0F\u91CC\u6709\u663E\u5F0F grid-column: 2\u2014\u2014
      \u7F51\u683C\u88AB\u538B\u7F29\u6210 [1fr, 0, 0] \u540E\u5B83\u4F1A\u843D\u5728 0px \u7684\u7B2C 2 \u8F68\uFF0C\u6574\u4E2A\u4E3B\u754C\u9762\u88AB\u6324\u51FA
      \u89C6\u53E3\uFF08\u53EA\u5269\u80CC\u666F\u56FE\uFF09\u3002\u5FC5\u987B\u663E\u5F0F\u628A\u5B83\u62C9\u56DE\u7B2C 1 \u8F68\uFF08issue #5\uFF09\u3002
-     \u7B2C 3 \u5217\uFF08details\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002 */
-  [data-mobile-nav="frame"] > :nth-child(2) {
+     \u7B2C 3 \u5217\uFF08details\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002
+
+     DSH 0.2.2 \u8D77\u8FD9\u4E00\u884C\u4E0D\u80FD\u518D\u6309\u300C\u7B2C\u51E0\u4E2A\u5B50\u5143\u7D20\u300D\u5B9A\u4F4D\uFF1A\u5B98\u65B9 AppFrame \u5728\u7A84\u5C4F
+     \u5F00\u542F\u4E86\u81EA\u5E26\u7684\u62BD\u5C49\uFF08.frame[data-sidebar-drawer]\uFF09\uFF0C\u5E76\u63D2\u5165\u4E86\u4E00\u4E2A
+     div[data-sidebar-mask] \u4F5C\u4E3A frame \u7684\u7B2C\u4E00\u4E2A\u5B50\u5143\u7D20\uFF0C\u4E8E\u662F
+     > :nth-child(2) \u4ECE\u4E3B\u5185\u5BB9\u5217\u53D8\u6210\u4E86\u4FA7\u8FB9\u680F\u5217\uFF0C\u4E3B\u5185\u5BB9\u5217\u7559\u5728 0px \u7684\u7B2C 2 \u8F68
+     \u2014\u2014 \u624B\u673A\u4E0A\u6574\u4E2A\u4F1A\u8BDD\u754C\u9762\u6D88\u5931\uFF08\u53EA\u5269\u80CC\u666F\uFF09\u3002\u6539\u7528\u5B98\u65B9\u7C7B\u540D\u540E\u7F00\u5B9A\u4F4D\uFF0C\u4E0E\u5143\u7D20
+     \u987A\u5E8F\u89E3\u8026\uFF08\u7C7B\u540D\u5F62\u5982 gURaQa_centerCol\uFF0C\u54C8\u5E0C\u524D\u7F00\u6BCF\u6B21\u6784\u5EFA\u90FD\u4F1A\u53D8\uFF09\u3002 */
+  [data-mobile-nav="frame"] > [class*="_centerCol"] {
     grid-column: 1 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
@@ -708,8 +715,13 @@ var MOBILE_CSS = `
      details pane 1000 and its full-screen frame ::after mask 1050 (issue
      #67: that mask sat on top of the 600 drawer and ate every tap). Still
      far under the fixed-position banners/toasts (z 9999) that float at the
-     viewport level. */
-  [data-mobile-nav="frame"] > :first-child {
+     viewport level.
+     Also positional-free since DSH 0.2.2: the first child is the native
+     div[data-sidebar-mask] in drawer mode, not the sidebar column, so the
+     drawer styling used to land on the mask (an opaque 92vw sheet) while the
+     real sidebar column stayed in the grid. Target the official class suffix
+     instead (gURaQa_sidebarCol; the hash prefix changes every build). */
+  [data-mobile-nav="frame"] > [class*="_sidebarCol"] {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
@@ -783,8 +795,17 @@ var MOBILE_CSS = `
      overflow:hidden drawer to scrollLeft=102, and every static child (plus the
      fixed overlay) shifts 102px off-screen. With transform:none the overlay is
      viewport-anchored: it dims the full screen and the sheet sits at left:8. */
-  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child {
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > [class*="_sidebarCol"] {
     transform: none !important;
+  }
+
+  /* DSH 0.2.2's native drawer ships its own backdrop, and it is not a
+     passive layer: it calls toggleSidebar() on tap. We render our own
+     backdrop and close on outside taps in JS, so a tap on theirs toggles the
+     drawer twice (close then reopen) \u2014 the drawer looks stuck open. Drop it
+     and keep ours, exactly like the dsh-web-ui-all mask below (issue #67). */
+  [data-mobile-nav="frame"] > [data-sidebar-mask] {
+    display: none !important;
   }
 
   /* Kill a competing full-screen mask (issue #67).
@@ -999,6 +1020,19 @@ var MOBILE_CSS = `
     left: 8px !important;
     top: 12px !important;
     z-index: 2 !important;
+  }
+  /* DSH 0.2.2 ships its own narrow-screen drawer opener in the frame's leading
+     seat (button[data-sidebar-opener], ui-sidebar HeaderLeadingControls.tsx:36)
+     and mounts it for every phase whenever the frame is in drawer mode. It sits
+     in the very same top-left corner and calls the very same toggleSidebar(),
+     so keeping ours would stack two identical buttons in one spot plus a third
+     floating one under them. The host control wins; ours step aside.
+     Gated on :has() so a host WITHOUT an opener (pre-0.2.2) still gets both
+     fallbacks \u2014 the floating button is also the only opener on the hero page
+     there, since no session header exists to host the header toggle. */
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="toggle"],
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="fab"] {
+    display: none !important;
   }
   /* The Files action sits at the FAR RIGHT of the header so it reads as a
      distinct control from the directory toggle on the left (which opens
@@ -2137,6 +2171,8 @@ var ja2 = {
   "cancel": "\u30AD\u30E3\u30F3\u30BB\u30EB",
   "pinInvalid": "PIN \u306F 8\u301C64 \u6587\u5B57\u306E\u82F1\u5B57\u307E\u305F\u306F\u6570\u5B57\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
   "pinCustomHint": "\u30AB\u30B9\u30BF\u30DE\u30A4\u30BA\u3059\u308B\u3068\u3001\u30D1\u30D6\u30EA\u30C3\u30AF\u958B\u59CB\u6642\u306B\u81EA\u52D5\u3067\u65B0\u3057\u3044 PIN \u306B\u306F\u306A\u308A\u307E\u305B\u3093",
+  "pinShow": "\u8868\u793A",
+  "pinHide": "\u975E\u8868\u793A",
   "lanPinOff": "\u{1F513} PIN \u306F\u30AA\u30D5\u3067\u3059\uFF1AQR \u30B3\u30FC\u30C9\u3060\u3051\u3067\u63A5\u7D9A\u3067\u304D\u3001PIN \u306F\u4E0D\u8981\u3067\u3059\uFF08\u540C\u3058 LAN \u5185\u306E\u30C7\u30D0\u30A4\u30B9\u306E\u307F\u30A2\u30AF\u30BB\u30B9\u53EF\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u3067\u306F\u5F15\u304D\u7D9A\u304D PIN \u304C\u5FC5\u8981\u3067\u3059\uFF09",
   "lanStarting": "\u30D7\u30ED\u30AD\u30B7\u6E96\u5099\u4E2D\u2026",
   "mobileRightbar": "\u30E2\u30D0\u30A4\u30EB\u53F3\u30B5\u30A4\u30C9\u30D0\u30FC",
@@ -2149,6 +2185,8 @@ var ja2 = {
   "stopTunnel": "\u30D1\u30D6\u30EA\u30C3\u30AF\u3092\u505C\u6B62",
   "enable": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u6709\u52B9\u5316",
   "opening": "\u6709\u52B9\u5316\u4E2D\u2026",
+  "reconnecting": "\u518D\u63A5\u7D9A\u4E2D\u2026",
+  "stopReconnect": "\u518D\u63A5\u7D9A\u3092\u505C\u6B62",
   "tunnelMode": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30E2\u30FC\u30C9\uFF1A",
   "modeQuick": "\u30E9\u30F3\u30C0\u30E0\u30C9\u30E1\u30A4\u30F3\uFF08\u30C7\u30D5\u30A9\u30EB\u30C8\uFF09",
   "modeNamed": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3",
