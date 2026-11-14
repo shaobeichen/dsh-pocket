@@ -30,6 +30,9 @@ function fmt(t, key, vars) {
 
 // 访问密码默认遮罩：默认显示 10 个圆点，点「显示/隐藏」切换明文——防肩窥与截屏泄露。
 // 样式自包含（不依赖组件内部的 styles 对象），可在任意密码行复用。
+// 注意按钮 style 的属性顺序：`font` 是简写属性，若排在 `fontSize` 之后会把
+// font-size 一并重置成 inherit，按钮文字就继承父级字号、比同排其他按钮大。
+// 必须让 `font: 'inherit'` 在前、`fontSize: 12` 在后（和 styles.btn 一致）。
 function PinMask(props) {
   const [shown, setShown] = useState(false);
   const value = props && props.value != null ? String(props.value) : '';
@@ -39,7 +42,7 @@ function PinMask(props) {
     h('span', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, letterSpacing: 1 } }, shown ? value : dots),
     h('button', {
       type: 'button',
-      style: { fontSize: 12, padding: '2px 10px', height: 26, borderRadius: 999, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'transparent', color: 'var(--dsw-alias-label-secondary,#6b7280)', cursor: 'pointer', font: 'inherit' },
+      style: { font: 'inherit', fontSize: 12, padding: '2px 10px', height: 26, borderRadius: 999, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'transparent', color: 'var(--dsw-alias-label-secondary,#6b7280)', cursor: 'pointer' },
       onClick: () => setShown((v) => !v),
       title: shown ? t('pinHide') : t('pinShow'),
     }, shown ? t('pinHide') : t('pinShow')));
