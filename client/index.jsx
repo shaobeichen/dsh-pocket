@@ -367,6 +367,8 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? 'idle';
   const tunnelStarting = ['downloading', 'starting', 'registering'].includes(tunnelPhase);
+  // 自愈自动重建中（就绪探活连续失败 / 进程崩溃后）：快速隧道会换新地址，需重新扫码
+  const tunnelRestarting = tunnelPhase === 'restarting';
   const tunnelStateDetail = tunnelState?.detail ?? '';
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   // 公网模式视图（issue #66）：{ mode, hostname, tokenSet }
@@ -517,9 +519,17 @@ function PocketSettingsTab({ rpcCall, t }) {
         h('span', { style: { fontWeight: 600, fontSize: 13 } }, t('wanAccess')),
         tunnelUrl
           ? h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: stopTunnel }, t('stopTunnel'))
-          : h('button', { style: { ...styles.primary, height: 28, padding: '0 14px', fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy || tunnelStarting ? t('opening') : t('enable')),
+          // 自动重连中：旧地址已失效（tunnelUrl 为空），给一个「停止重连」出口——
+          // 否则用户只能干等最多 healthMaxRestarts 轮退避重建，无法取消。
+          : tunnelRestarting
+            ? h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: stopTunnel }, t('stopReconnect'))
+            : h('button', { style: { ...styles.primary, height: 28, padding: '0 14px', fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting },
+              busy || tunnelStarting ? t('opening') : t('enable')),
       ),
-      tunnelStarting
+      tunnelRestarting
+        ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } },
+          errText(tunnelStateDetail) || t('reconnecting'))
+        : tunnelStarting
         ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } },
           tunnelPhase === 'downloading'
             ? fmt(t, 'downloading', { s: elapsed(tunnelStateStarted) })
