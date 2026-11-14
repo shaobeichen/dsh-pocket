@@ -67,10 +67,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanSetEnabled: "lan.setEnabled",
   mobileRightbarSetEnabled: "mobile.rightbar.setEnabled",
   pinSetCustom: "pin.setCustom",
-  pocketReset: "pocket.reset",
-  // 移动端「复制文件内容」（issue #17）：手机经此 RPC 让主机读取文件正文，
-  // 再写入剪贴板——因为手机无法直接打开电脑上的文件。
-  fileRead: "pocket.fileRead"
+  pocketReset: "pocket.reset"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -480,167 +477,31 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
   ));
 }
 
-// client/mobile/fileGuard.ts
-var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
+// client/mobile/add-workspace.ts
 var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
-var COPY_LABEL = "\u590D\u5236";
-function looksLikeFilePath(text) {
-  const t = (text ?? "").trim();
-  if (t.length < 3 || t.length > 320) return false;
-  if (/^(\/|~\/|\.\.?\/|[A-Za-z]:\\)/.test(t)) return true;
-  if (/\/[\w.\-]+\.\w{1,12}$/.test(t)) return true;
-  if (/[\w.\-]+\/[\w.\-]+\.\w{1,12}/.test(t)) return true;
-  return false;
-}
-async function copyText(text) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
+function startAddWorkspaceHider() {
+  const checkOne = (node) => {
+    if (node.nodeType !== 1) return;
+    const el = node;
+    const txt = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim();
+    if (WS_LABELS.includes(txt)) {
+      el.style.display = "none";
+      el.setAttribute("data-mobile-nav-hide", "add-workspace");
     }
-  } catch {
-  }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.top = "-9999px";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const okCopy = document.execCommand("copy");
-    ta.remove();
-    return okCopy;
-  } catch {
-    return false;
-  }
-}
-function startFileGuard(readFile) {
-  let toastEl = null;
-  let toastTimer = null;
-  const showToast = (text) => {
-    if (toastEl === null) {
-      toastEl = document.createElement("div");
-      toastEl.setAttribute("data-mobile-nav", "file-guard-toast");
-      Object.assign(toastEl.style, {
-        position: "fixed",
-        left: "50%",
-        bottom: "64px",
-        transform: "translateX(-50%)",
-        maxWidth: "84vw",
-        zIndex: "9999",
-        padding: "10px 14px",
-        borderRadius: "10px",
-        background: "rgba(20,22,28,.92)",
-        color: "#fff",
-        fontSize: "13px",
-        lineHeight: "1.4",
-        textAlign: "center",
-        fontFamily: "inherit",
-        boxShadow: "0 4px 16px rgba(0,0,0,.28)",
-        pointerEvents: "none",
-        opacity: "0",
-        transition: "opacity .18s ease"
+  };
+  const sel = '[role="menuitem"],[role="option"],li,button,a';
+  document.querySelectorAll(sel).forEach(checkOne);
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      m.addedNodes.forEach((n) => {
+        if (n.nodeType !== 1) return;
+        checkOne(n);
+        n.querySelectorAll?.(sel).forEach(checkOne);
       });
-      document.body.appendChild(toastEl);
     }
-    toastEl.textContent = text;
-    requestAnimationFrame(() => {
-      if (toastEl !== null) toastEl.style.opacity = "1";
-    });
-    if (toastTimer !== null) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => {
-      if (toastEl !== null) toastEl.style.opacity = "0";
-    }, 2600);
-  };
-  const onClick = (event) => {
-    const target = event.target;
-    if (target === null) return;
-    const el = target.closest("button, a");
-    if (el === null) return;
-    if (!looksLikeFilePath(el.textContent)) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showToast(GUARD_MSG);
-  };
-  document.addEventListener("click", onClick, true);
-  const injectCopyButtons = () => {
-    const links = document.querySelectorAll("button, a");
-    links.forEach((el) => {
-      if (el.getAttribute("data-mobile-nav-copy") === "1") return;
-      const txt = (el.textContent ?? "").trim();
-      if (!looksLikeFilePath(txt)) return;
-      el.setAttribute("data-mobile-nav-copy", "1");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("data-mobile-nav", "copy-file");
-      btn.textContent = COPY_LABEL;
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const filePath = (el.textContent ?? "").trim();
-        btn.disabled = true;
-        btn.textContent = "\u2026";
-        try {
-          const res = await readFile(filePath);
-          if (!res?.ok) {
-            showToast(res?.error?.message ?? "\u590D\u5236\u5931\u8D25");
-            return;
-          }
-          const content = res.value?.content ?? "";
-          const copied = await copyText(content);
-          if (copied) {
-            const kb = Math.max(1, Math.round((res.value?.size ?? content.length) / 1024));
-            showToast(`\u5DF2\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF08${kb} KB\uFF09`);
-          } else {
-            showToast("\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9");
-          }
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : "\u590D\u5236\u5931\u8D25");
-        } finally {
-          btn.disabled = false;
-          btn.textContent = COPY_LABEL;
-        }
-      });
-      el.parentElement?.insertBefore(btn, el.nextSibling);
-    });
-  };
-  injectCopyButtons();
-  const copyObserver = new MutationObserver(() => injectCopyButtons());
-  copyObserver.observe(document.body, { childList: true, subtree: true });
-  const hideWsEntries = () => {
-    const checkOne = (node) => {
-      if (node.nodeType !== 1) return;
-      const el = node;
-      const txt = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim();
-      if (WS_LABELS.includes(txt)) {
-        el.style.display = "none";
-        el.setAttribute("data-mobile-nav-hide", "add-workspace");
-      }
-    };
-    const sel = '[role="menuitem"],[role="option"],li,button,a';
-    document.querySelectorAll(sel).forEach(checkOne);
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        m.addedNodes.forEach((n) => {
-          if (n.nodeType !== 1) return;
-          checkOne(n);
-          n.querySelectorAll?.(sel).forEach(checkOne);
-        });
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  };
-  const disconnectWs = hideWsEntries();
-  return () => {
-    document.removeEventListener("click", onClick, true);
-    copyObserver.disconnect();
-    disconnectWs();
-    if (toastTimer !== null) window.clearTimeout(toastTimer);
-    toastEl?.remove();
-  };
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
 }
 
 // client/mobile/mobile.css.ts
@@ -1665,44 +1526,13 @@ var MOBILE_CSS = `
 
   /* ---------- \u9690\u85CF\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u300D\u5165\u53E3\uFF08\u624B\u673A\u4E0A\u914D\u5DE5\u4F5C\u533A\u65E0\u610F\u4E49\uFF0Cissue #17 \u4FEE\u6B63\uFF09 ----------
      \u56FE\u6807\u6309\u94AE\u7684 aria-label \u968F\u8BED\u8A00\u53D8\u5316\uFF08zh\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u300D/ en\u300CAdd workspace\u300D\uFF09\uFF0C
-     \u4E24\u79CD\u90FD\u8986\u76D6\uFF1B\u4E0B\u62C9\u83DC\u5355\u91CC\u7684\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026\u300D\u9879\u7531 fileGuard.ts \u7684 MutationObserver
+     \u4E24\u79CD\u90FD\u8986\u76D6\uFF1B\u4E0B\u62C9\u83DC\u5355\u91CC\u7684\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026\u300D\u9879\u7531 add-workspace.ts \u7684 MutationObserver
      \u6309\u6587\u6848\u515C\u5E95\u9690\u85CF\uFF08CSS \u9009\u4E0D\u5230\u7EAF\u6587\u672C\u8282\u70B9\uFF09\u3002\u53EA\u5728\u7A84\u5C4F\u751F\u6548\u2014\u2014\u684C\u9762\u7AEF\u7167\u5E38\u4FDD\u7559\u3002 */
   button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A"],
   button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026"],
   button[aria-label="Add workspace"],
   button[aria-label="Add workspace\u2026"] {
     display: none !important;
-  }
-
-  /* ---------- \u6587\u4EF6\u94FE\u63A5\u65C1\u7684\u300C\u590D\u5236\u300D\u6309\u94AE\uFF08issue #17\uFF1A\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF09 ----------
-     \u6302\u5728\u5BF9\u8BDD\u91CC\u7684\u6587\u4EF6\u94FE\u63A5\uFF08<button>/<a>\uFF0C\u6587\u6848\u5373\u8DEF\u5F84\uFF09\u7D27\u90BB\u4F4D\u7F6E\uFF0C\u7531 fileGuard.ts
-     \u6CE8\u5165\u3002\u53EA\u5C4F\u5185\u53EF\u89C1\uFF1A\u684C\u9762\u7AEF\u4E0D\u6CE8\u5165\u3001\u4E0D\u663E\u793A\uFF1B\u8FD9\u91CC\u518D\u515C\u5E95\u4E00\u5C42\uFF0C\u907F\u514D\u4EFB\u4F55\u9057\u6F0F\u3002
-     \u6587\u4EF6\u94FE\u63A5\u591A\u4E3A inline\uFF0C\u6309\u94AE\u7528 inline-flex \u7D27\u8DDF\u5176\u540E\u5373\u53EF\u3002 */
-  [data-mobile-nav="copy-file"] {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    margin-left: 6px !important;
-    vertical-align: baseline !important;
-    height: 22px !important;
-    padding: 0 8px !important;
-    border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .14)) !important;
-    border-radius: 6px !important;
-    background: var(--dsw-alias-bg-layer-1, #fff) !important;
-    color: var(--dsw-alias-label-primary, inherit) !important;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    cursor: pointer !important;
-    -webkit-tap-highlight-color: transparent !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .12) !important;
-  }
-  [data-mobile-nav="copy-file"]:active {
-    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .06)) !important;
-  }
-  [data-mobile-nav="copy-file"][disabled] {
-    opacity: .55 !important;
-    cursor: default !important;
   }
 }
 
@@ -1981,28 +1811,8 @@ function mobileApply(ctx) {
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
-    const getWorkspaceCwd = () => {
-      try {
-        const ws = ctx.get?.("workspaces") ?? ctx.workspaces;
-        const list = ws?.list;
-        const arr = Array.isArray(list) ? list : list && typeof list === "object" && "value" in list ? list.value : null;
-        if (Array.isArray(arr)) {
-          for (const w of arr) {
-            const c = w?.cwd ?? w?.root;
-            if (typeof c === "string" && c) return c;
-          }
-        }
-      } catch {
-      }
-      return "";
-    };
-    const readFile = (filePath) => ctx.connection.rpc.call(
-      POCKET_RPC_CHANNEL,
-      POCKET_ENDPOINTS.fileRead,
-      { path: filePath, cwd: getWorkspaceCwd() }
-    );
-    return startFileGuard(readFile);
-  }, "dsh-mobile-nav: file open guard + copy button + hide add-workspace (issue #17)");
+    return startAddWorkspaceHider();
+  }, "dsh-mobile-nav: hide add-workspace (issue #17)");
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };

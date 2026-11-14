@@ -3,7 +3,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import { MobileNavToggle } from './MobileNavToggle.tsx'
 import { MobileNavOverlay } from './MobileNavOverlay.tsx'
 import { MobileDrawerFooter } from './MobileDrawerFooter.tsx'
-import { startFileGuard } from './fileGuard.ts'
+import { startAddWorkspaceHider } from './add-workspace.ts'
 import { MOBILE_CSS } from './mobile.css.ts'
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT } from '../api.js'
 import { NS, en, ja, zh } from './locales.ts'
@@ -295,37 +295,8 @@ export function mobileApply(ctx): void {
   // 「复制」按钮，点它经主机 RPC 读取文件正文再写入剪贴板。只挂窄屏。
   ctx.effect(() => {
     if (!narrow.matches) return () => {}
-    // 尽量拿到当前工作区 cwd（文件链接文案是相对它的），传给主机 RPC 做精确解析；
-    // 拿不到就回退到主机 process.cwd()。dsh-web 的 workspaces 服务暴露当前工作区。
-    const getWorkspaceCwd = (): string => {
-      try {
-        const ws = (ctx as unknown as { get?: (k: string) => unknown }).get?.('workspaces')
-          ?? (ctx as unknown as { workspaces?: unknown }).workspaces
-        const list = (ws as { list?: unknown })?.list
-        const arr: unknown[] | null = Array.isArray(list)
-          ? list
-          : (list && typeof list === 'object' && 'value' in (list as object)
-            ? (list as { value: unknown[] }).value
-            : null)
-        if (Array.isArray(arr)) {
-          for (const w of arr) {
-            const c = (w as { cwd?: string; root?: string })?.cwd
-              ?? (w as { cwd?: string; root?: string })?.root
-            if (typeof c === 'string' && c) return c
-          }
-        }
-      } catch { /* 忽略，回退 process.cwd() */ }
-      return ''
-    }
-    // 手机侧读文件回调：走 dsh-pocket 的 RPC 通道，由主机侧 fileRead 端点处理。
-    const readFile = (filePath: string) =>
-      ctx.connection.rpc.call(
-        POCKET_RPC_CHANNEL,
-        POCKET_ENDPOINTS.fileRead,
-        { path: filePath, cwd: getWorkspaceCwd() },
-      ) as Promise<{ ok: boolean; value?: { content: string; path: string; size: number }; error?: { message: string } }>
-    return startFileGuard(readFile)
-  }, 'dsh-mobile-nav: file open guard + copy button + hide add-workspace (issue #17)')
+    return startAddWorkspaceHider()
+  }, 'dsh-mobile-nav: hide add-workspace (issue #17)')
 
   // 手机上模型 / 提供方设置加载失败：上游 dsh-web 会渲染「加载提供方目录失败 /
   // Settings are unavailable in this browser」。这条文案不是 dsh-pocket 的，但手机侧

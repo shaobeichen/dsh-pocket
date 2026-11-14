@@ -1034,44 +1034,13 @@ export const MOBILE_CSS = `
 
   /* ---------- 隐藏「添加工作区」入口（手机上配工作区无意义，issue #17 修正） ----------
      图标按钮的 aria-label 随语言变化（zh「添加工作区」/ en「Add workspace」），
-     两种都覆盖；下拉菜单里的「添加工作区…」项由 fileGuard.ts 的 MutationObserver
+     两种都覆盖；下拉菜单里的「添加工作区…」项由 add-workspace.ts 的 MutationObserver
      按文案兜底隐藏（CSS 选不到纯文本节点）。只在窄屏生效——桌面端照常保留。 */
   button[aria-label="添加工作区"],
   button[aria-label="添加工作区…"],
   button[aria-label="Add workspace"],
   button[aria-label="Add workspace…"] {
     display: none !important;
-  }
-
-  /* ---------- 文件链接旁的「复制」按钮（issue #17：复制文件内容） ----------
-     挂在对话里的文件链接（<button>/<a>，文案即路径）紧邻位置，由 fileGuard.ts
-     注入。只屏内可见：桌面端不注入、不显示；这里再兜底一层，避免任何遗漏。
-     文件链接多为 inline，按钮用 inline-flex 紧跟其后即可。 */
-  [data-mobile-nav="copy-file"] {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    margin-left: 6px !important;
-    vertical-align: baseline !important;
-    height: 22px !important;
-    padding: 0 8px !important;
-    border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .14)) !important;
-    border-radius: 6px !important;
-    background: var(--dsw-alias-bg-layer-1, #fff) !important;
-    color: var(--dsw-alias-label-primary, inherit) !important;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    cursor: pointer !important;
-    -webkit-tap-highlight-color: transparent !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .12) !important;
-  }
-  [data-mobile-nav="copy-file"]:active {
-    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .06)) !important;
-  }
-  [data-mobile-nav="copy-file"][disabled] {
-    opacity: .55 !important;
-    cursor: default !important;
   }
 }
 
