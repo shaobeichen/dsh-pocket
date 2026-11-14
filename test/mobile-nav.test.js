@@ -411,3 +411,12 @@ test('issue #196：抽屉工作区保底高度 + 侧栏列可滚动', () => {
   assert.match(css, /overflow-y: auto !important/, '上下固定区块溢出时仍能滚到工作区');
   assert.match(css, /overscroll-behavior: contain !important/);
 });
+
+
+test('issue #205：只在桌面宿主隐藏「添加工作区」，CLI/Linux 网页文件选择器保留入口', () => {
+  const src = readFileSync(new URL('../client/mobile/mobile-apply.tsx', import.meta.url), 'utf8');
+  const block = src.slice(src.indexOf('hide add-workspace on desktop hosts only') - 900, src.indexOf('hide add-workspace on desktop hosts only'));
+  assert.match(block, /POCKET_ENDPOINTS\.status/, '要读 status 里的宿主类型，不能只看屏幕宽度');
+  assert.match(block, /result\.value\?\.desktop === false/, 'desktop=false（dsh web CLI / Linux）时不隐藏');
+  assert.ok(!/if \(!narrow\.matches\) return \(\) => \{\}\s*\n\s*return startAddWorkspaceHider\(\)/.test(src), '不能一刀切按窄屏隐藏');
+});

@@ -288,15 +288,34 @@ export function mobileApply(ctx): void {
     }
   }, 'dsh-mobile-nav: sheet rise animation replay')
 
-  // 移动端文件守卫（issue #17 修正）：手机上点 dsh-web 渲染的文件链接会触发桌面
-  // 端 workspaces.openPath(open ...) —— 既打不开（路径在电脑上），又会抛
-  // "path open failed"。这里在捕获阶段拦截这类点击 / 键盘激活，改为弹一个提示，
-  // 并隐藏「添加工作区」入口（手机上配工作区无意义）；同时在文件链接旁注入
-  // 「复制」按钮，点它经主机 RPC 读取文件正文再写入剪贴板。只挂窄屏。
+  // 隐藏「添加工作区」入口：只在**桌面宿主**的窄屏上隐藏（issue #17 + #205）。
+  // 桌面宿主用的是系统文件选择器，手机上点开必然失败；但 `dsh web` CLI / Linux
+  // 走的是网页文件选择器，手机上同样能选路径、能新建工作区。原来一律按屏幕宽度
+  // 隐藏，等于把可用功能藏掉了。status 里的 desktop 字段就是宿主类型，按设备判定。
+  // 读不到状态时保守起见保持旧行为（隐藏），避免桌面宿主上露出必失败的入口。
   ctx.effect(() => {
     if (!narrow.matches) return () => {}
-    return startAddWorkspaceHider()
-  }, 'dsh-mobile-nav: hide add-workspace (issue #17)')
+    let active = true
+    let dispose: (() => void) | null = null
+    const load = async (): Promise<void> => {
+      try {
+        const result = await ctx.connection.rpc.call(POCKET_RPC_CHANNEL, POCKET_ENDPOINTS.status, {}) as {
+          ok?: boolean
+          value?: { desktop?: boolean }
+        }
+        if (!active) return
+        if (result?.ok === true && result.value?.desktop === false) return
+        dispose = startAddWorkspaceHider()
+      } catch {
+        if (active) dispose = startAddWorkspaceHider()
+      }
+    }
+    void load()
+    return () => {
+      active = false
+      dispose?.()
+    }
+  }, 'dsh-mobile-nav: hide add-workspace on desktop hosts only (issue #17 #205)')
 
   // 手机上模型 / 提供方设置加载失败：上游 dsh-web 会渲染「加载提供方目录失败 /
   // Settings are unavailable in this browser」。这条文案不是 dsh-pocket 的，但手机侧
