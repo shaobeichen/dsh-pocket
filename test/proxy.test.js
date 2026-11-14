@@ -6,7 +6,8 @@ import { createServer, request as httpRequest } from 'node:http';
 import { connect } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 
-import { createPocketProxy, createHandshakeTracker } from '../lib/proxy.mjs';
+import { createPocketProxy, createHandshakeTracker, hasUsableAuthCookie, upstreamPathWithLaunchToken } from '../lib/proxy.mjs';
+import { readFileSync } from 'node:fs';
 
 /** 构造一个带掩码的 WS 文本帧（浏览器在握手后立即发的首帧，会进 upgrade 的 head）。 */
 function maskedTextFrame(text) {
@@ -1326,7 +1327,10 @@ test('端到端（issue #77 + #91）：代理建立和恢复 DSH 浏览器会话
     assert.match(await second.text(), /index/, '首页内容正确');
     assert.ok(!seen[seen.length - 1].includes('token='), '带 cookie 的请求不再补 token（防循环）');
 
-    const staleHeaders = { cookie: 'dsh-auth-old=stale' };
+    // issue #185：区分两种「失效」。名字对但值失效（同名不同值）仍走上游 401 →
+    // 303 重做握手的路径；名字不匹配（旧 authority 遗留）现在会直接补 token，
+    // 不再先吃一次 401，单独在下面的用例覆盖。
+    const staleHeaders = { cookie: 'dsh-auth-abc=stale' };
     const renewStaleSession = async () => {
       const retry = await fetch(`${base}/`, { redirect: 'manual', headers: staleHeaders });
       assert.equal(retry.status, 303, await retry.text());
@@ -1490,4 +1494,84 @@ test('?token=<原始 PIN> 直达种 HttpOnly cookie，issue #35', async () => {
     await proxy.close();
     await new Promise((r) => up.close(r));
   }
+});
+
+
+// ---------- issue #185：按「当前上游」的 cookie 名判定会话 ----------
+
+test('issue #185：hasUsableAuthCookie 只认学到的当前 cookie 名，未学到时退回旧行为', () => {
+  assert.equal(hasUsableAuthCookie(undefined, null), false);
+  assert.equal(hasUsableAuthCookie('foo=1', new Set(['dsh-auth-current'])), false);
+  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', null), true, '没学到名字 → 完全退回前缀判断');
+  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', new Set()), true, '空集合同理（避免 303 死循环）');
+  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', new Set(['dsh-auth-current'])), false, '旧端口残留 cookie 不算已登录');
+  assert.equal(hasUsableAuthCookie('dsh_pocket_token=x; dsh-auth-current=1', new Set(['dsh-auth-current'])), true);
+});
+
+test('issue #185：旧 authority 的 cookie 不再阻止补 launch token', () => {
+  const names = new Set(['dsh-auth-current']);
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-OLDPORT=stale', 'TOK', names), '/?token=TOK');
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-current=1', 'TOK', names), '/');
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-OLDPORT=stale', 'TOK'), '/', '未学到名字时行为零变化');
+  assert.equal(upstreamPathWithLaunchToken('/?dsh-pocket-auth=1', 'GET', 'dsh-auth-current=1', 'TOK', names), '/?dsh-pocket-auth=1&token=TOK', 'force 仍优先');
+});
+
+test('issue #185：端到端——学到 cookie 名后，旧端口残留 cookie 直接补 token 恢复（不再先吃 401）', async () => {
+  const http = await import('node:http');
+  const TOK = 'launch-185';
+  const COOKIE = 'dsh-auth-current=1';
+  const seen = [];
+  const upstream = http.createServer((req, res) => {
+    seen.push(req.url);
+    const u = new URL(req.url ?? '/', 'http://x');
+    if (u.pathname === '/' && u.searchParams.get('token') === TOK) {
+      res.writeHead(303, { location: '/', 'set-cookie': COOKIE + '; Path=/; HttpOnly' });
+      res.end();
+      return;
+    }
+    if (String(req.headers.cookie ?? '').split(/;\s*/).includes(COOKIE)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end('index');
+      return;
+    }
+    res.writeHead(401, { 'content-type': 'text/plain' });
+    res.end('dsh web authentication required');
+  });
+  await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
+    injectHtml: '', launchToken: () => TOK, handshakeLimit: 10,
+  });
+  const base = 'http://127.0.0.1:' + proxy.port;
+  try {
+    // 首次握手：上游下发 Set-Cookie，代理学到确切名字
+    const first = await fetch(base + '/', { redirect: 'manual', headers: { host: 'abc.trycloudflare.com' } });
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get('x-dsh-pocket-handshake'), 'transition');
+    await first.text();
+    // 浏览器里残留的旧 authority cookie：不该再被当成「已登录」而吞掉握手
+    const stale = await fetch(base + '/', { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: 'dsh-auth-OLDPORT=stale' } });
+    assert.equal(stale.status, 200, '旧 cookie 不再导致裸 401 / 反复重连');
+    assert.equal(stale.headers.get('x-dsh-pocket-handshake'), 'transition', '直接补 token 重做握手');
+    assert.ok(seen[seen.length - 1].includes('token=' + TOK), '确实重新向上游发了 launch token');
+    await stale.text();
+  } finally {
+    await proxy.close();
+    await new Promise((r) => upstream.close(r));
+  }
+});
+
+// ---------- issue #221：WS 心跳不要把健康空闲连接判成死链 ----------
+
+test('issue #221：心跳先发 Ping 再计数，默认容忍 8 个周期，且支持只保活', () => {
+  const src = readFileSync(new URL('../lib/proxy.mjs', import.meta.url), 'utf8');
+  const start = src.indexOf('function attachWebSocketHeartbeat(');
+  assert.ok(start > 0);
+  const body = src.slice(start, src.indexOf('\n}', start));
+  assert.match(body, /missLimit = 8/, '默认从 2 个周期（60s）放宽到 8 个（4 分钟）');
+  assert.match(body, /if \(missLimit <= 0\) return;/, 'missLimit<=0 表示只保活、永不主动断');
+  assert.ok(
+    body.indexOf('socket.write(WS_PING_FRAME)') < body.indexOf('misses += 1'),
+    '必须先发出本轮 Ping 再自增静默计数，否则计数与是否探测过脱钩',
+  );
 });
