@@ -1278,20 +1278,21 @@ test('端到端（issue #75）：代理转发前清掉 dsh-desktop-*，上游拿
   }
 });
 
-test('端到端（issue #77 + #91）：代理自动补 token 完成会话握手——首屏过渡页下发 cookie，之后正常返回首页', async () => {
+test('端到端（issue #77 + #91）：代理建立和恢复 DSH 浏览器会话', async () => {
   const http = await import('node:http');
   const TOK = 'launch-token-abc123';
+  const COOKIE = 'dsh-auth-abc=1';
   const seen = [];
-  // 模拟新版 dsh web 的浏览器会话认证：/?token= → 303 + Set-Cookie；有 cookie → 首页；否则 401
+  // 模拟 DSH 会话认证。启动 token 换取 cookie，有效 cookie 访问首页，其余请求返回 401。
   const upstream = http.createServer((req, res) => {
     seen.push(req.url);
     const u = new URL(req.url ?? '/', 'http://x');
     if (u.pathname === '/' && u.searchParams.get('token') === TOK) {
-      res.writeHead(303, { location: '/', 'set-cookie': 'dsh-auth-abc=1; Path=/; HttpOnly; SameSite=Strict' });
+      res.writeHead(303, { location: '/', 'set-cookie': `${COOKIE}; Path=/; HttpOnly; SameSite=Strict` });
       res.end();
       return;
     }
-    if (String(req.headers.cookie ?? '').includes('dsh-auth-')) {
+    if (String(req.headers.cookie ?? '').split(/;\s*/).includes(COOKIE)) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end('<html><body>index</body></html>');
       return;
@@ -1302,7 +1303,7 @@ test('端到端（issue #77 + #91）：代理自动补 token 完成会话握手�
   await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
   const proxy = await createPocketProxy({
     port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
-    injectHtml: '', launchToken: () => TOK,
+    injectHtml: '', launchToken: () => TOK, handshakeLimit: 2,
   });
   const base = `http://127.0.0.1:${proxy.port}`;
   try {
@@ -1320,10 +1321,39 @@ test('端到端（issue #77 + #91）：代理自动补 token 完成会话握手�
     assert.ok(seen.some((u) => u.includes(`token=${TOK}`)), '上游确实收到了启动 token');
 
     // 浏览器带着 cookie 再访问：不再补 token → 直接拿到首页（不会循环）
-    const second = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: 'dsh-auth-abc=1' } });
+    const second = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: COOKIE } });
     assert.equal(second.status, 200, '带 cookie 直接返回首页');
     assert.match(await second.text(), /index/, '首页内容正确');
     assert.ok(!seen[seen.length - 1].includes('token='), '带 cookie 的请求不再补 token（防循环）');
+
+    const staleHeaders = { cookie: 'dsh-auth-old=stale' };
+    const renewStaleSession = async () => {
+      const retry = await fetch(`${base}/`, { redirect: 'manual', headers: staleHeaders });
+      assert.equal(retry.status, 303, await retry.text());
+      const location = retry.headers.get('location');
+      assert.equal(location, '/?dsh-pocket-auth=1', '重试地址只包含握手标记');
+      return fetch(`${base}${location}`, { redirect: 'manual', headers: staleHeaders });
+    };
+
+    // 浏览器一直发送失效的 cookie 时，补发会话也要受重试上限约束。
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const renewed = await renewStaleSession();
+      assert.equal(renewed.status, 200);
+      assert.equal(renewed.headers.get('x-dsh-pocket-handshake'), 'transition');
+      assert.equal(renewed.headers.get('set-cookie')?.split(';')[0], COOKIE);
+      await renewed.text();
+    }
+    const blocked = await renewStaleSession();
+    assert.equal(blocked.status, 503);
+    assert.equal(blocked.headers.get('x-dsh-pocket-handshake'), 'blocked');
+    await blocked.text();
+
+    const recovered = await fetch(`${base}/`, { headers: { cookie: `${staleHeaders.cookie}; ${COOKIE}` } });
+    assert.equal(recovered.status, 200);
+    assert.match(await recovered.text(), /index/);
+    const reset = await renewStaleSession();
+    assert.equal(reset.headers.get('x-dsh-pocket-handshake'), 'transition', '上游接受会话后清空重试计数');
+    await reset.text();
   } finally {
     await proxy.close();
     await new Promise((r) => upstream.close(r));
@@ -1383,7 +1413,8 @@ test('createHandshakeTracker：窗口内累计、clear 清零、过期重新计�
   assert.equal(t.record('1.2.3.4', now), 1);
   assert.equal(t.record('1.2.3.4', now + 10), 2);
   assert.equal(t.record('1.2.3.4', now + 20), 3);
-  assert.equal(t.exhausted('1.2.3.4'), true, '达到上限');
+  assert.equal(t.exhausted('1.2.3.4', now + 1000), true, '窗口内达到上限');
+  assert.equal(t.exhausted('1.2.3.4', now + 1001), false, '窗口过期后可再次尝试');
   assert.equal(t.exhausted('5.6.7.8'), false, '别的 IP 不受影响');
   t.clear('1.2.3.4');
   assert.equal(t.exhausted('1.2.3.4'), false, 'clear 后清零');
