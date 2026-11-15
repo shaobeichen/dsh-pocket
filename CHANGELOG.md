@@ -1,3 +1,11 @@
+## [2.13.1](https://github.com/shaobeichen/dsh-pocket/compare/v2.13.0...v2.13.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **client:** PIN 显示/隐藏按钮字号与同排按钮对齐（12px） ([96e52a1](https://github.com/shaobeichen/dsh-pocket/commit/96e52a12af6e29fbd67352b9867f72b5ff2506e8))
+* 按整体代码评审收尾（稳定性/一致性/规格偏差） ([b8eca37](https://github.com/shaobeichen/dsh-pocket/commit/b8eca37461ca8cfad10c08fd9ede2cdb03bec1bb)), closes [#203](https://github.com/shaobeichen/dsh-pocket/issues/203) [#205](https://github.com/shaobeichen/dsh-pocket/issues/205) [#217](https://github.com/shaobeichen/dsh-pocket/issues/217) [#211](https://github.com/shaobeichen/dsh-pocket/issues/211) [#221](https://github.com/shaobeichen/dsh-pocket/issues/221) [203/#211](https://github.com/shaobeichen/dsh-pocket/issues/211)
+
 # [2.13.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.12.0...v2.13.0) (2026-11-14)
 
 
