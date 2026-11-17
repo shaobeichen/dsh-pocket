@@ -1631,3 +1631,37 @@ test('issue #217：XHR 风格请求拿到原始 401，不被 303 重做握手劫
     await new Promise((r) => upstream.close(r));
   }
 });
+
+test('原生 iOS 登录入口不可用时退回公网访问密码登录', async () => {
+  const pin = 'test123456';
+  const proxy = await createPocketProxy({
+    port: 0,
+    host: '127.0.0.1',
+    auth: { getToken: () => pin, isProtected: () => true, sessionKey: 'test-session' },
+  });
+  const base = `http://127.0.0.1:${proxy.port}`;
+  const post = (path, token) => fetch(base + path, {
+    method: 'POST',
+    redirect: 'manual',
+    body: new URLSearchParams({ token }),
+  });
+  try {
+    const missing = await post('/dsh-pocket-ios/login', pin);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.headers.get('set-cookie'), null);
+
+    const invalid = await post('/pocket-login', 'wrong-password');
+    assert.equal(invalid.headers.get('set-cookie'), null);
+    await invalid.body.cancel();
+
+    const valid = await post('/pocket-login', pin);
+    assert.equal(valid.status, 302);
+    assert.match(valid.headers.get('set-cookie') ?? '', /^dsh_pocket_token=/);
+
+    const protectedApi = await fetch(base + '/api', { headers: { accept: 'application/json' } });
+    assert.equal(protectedApi.status, 401);
+    await protectedApi.body.cancel();
+  } finally {
+    await proxy.close();
+  }
+});
