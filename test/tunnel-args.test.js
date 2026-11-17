@@ -104,6 +104,7 @@ test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 ru
       // 命名隧道同样需要 metrics 端口做就绪度探活
       const metricsIdx = argv.indexOf('--metrics');
       assert.ok(metricsIdx > 0, '命名隧道必须显式指定 --metrics');
+      assert.ok(metricsIdx < argv.indexOf('run'), '--metrics 必须在 run 子命令前');
       assert.match(argv[metricsIdx + 1], /^127\.0\.0\.1:\d+$/, 'metrics 只绑本机回环');
       assert.equal(Number(argv[metricsIdx + 1].split(':').pop()), res.metricsPort, '句柄回传的 metricsPort 与实参一致');
     });
