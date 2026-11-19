@@ -499,14 +499,20 @@ export const MOBILE_CSS = `
   /* --- Session header on mobile ---
      Layout goal: [toggle] [session title] [mode badge] in a row. The optional
      rightbar entry uses the shell's stable header-corner hook. */
+  /* Keep DSH's 10px top inset and 30px title row: the native opener's 28px
+     button at y=11 shares their vertical center, including at the drawer breakpoint. */
   [data-phase] header {
-    padding: 8px 12px 0 !important;
+    padding: 10px 12px 0 !important;
   }
   /* The directory and Files controls are absolutely positioned, so reserve
      their lanes and let the title use the remaining width without squeezing. */
-  [data-phase] header > :first-child {
-    min-height: 36px !important;
+  [data-phase] header [class$="_titleRow"] {
+    min-height: 30px !important;
     padding: 0 32px !important;
+  }
+  /* Align tab text with the 16px icon inside the native 28px opener at x=12. */
+  [data-phase] header [class$="_tabs"] {
+    padding-left: 6px !important;
   }
   [data-phase] header [class$="_titleCluster"],
   [data-phase] header [class$="_crumbs"] {
@@ -537,7 +543,7 @@ export const MOBILE_CSS = `
   [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] > * {
     flex: 0 0 auto !important;
   }
-  /* 3px thumb: a 36px header has no room for a full-size scrollbar. Styling
+  /* 3px thumb: a compact header has no room for a full-size scrollbar. Styling
      ::-webkit-scrollbar also opts the phone out of overlay scrollbars, so the
      hint that the row scrolls stays visible instead of only appearing mid-swipe. */
   [data-phase] header [class$="_titleRow"] [class$="_titleCluster"]::-webkit-scrollbar {
@@ -547,12 +553,12 @@ export const MOBILE_CSS = `
     border-radius: 2px;
     background: var(--dsw-alias-scrollbar-bg-l2, rgba(255, 255, 255, 0.28));
   }
-  /* The directory toggle sits at the far left of the header (the header
-     is position:relative; the data-slot wrappers are display:contents). */
+  /* The directory toggle sits at the far left of the relative conversation
+     root; the data-slot wrappers are display:contents. */
   [data-mobile-nav="toggle"] {
     position: absolute !important;
-    left: 8px !important;
-    top: 12px !important;
+    left: 12px !important;
+    top: 11px !important;
     z-index: 2 !important;
   }
   /* DSH 0.2.2 ships its own narrow-screen drawer opener in the frame's leading
@@ -575,7 +581,7 @@ export const MOBILE_CSS = `
     position: absolute !important;
     left: auto !important;
     right: 8px !important;
-    top: 12px !important;
+    top: 11px !important;
     z-index: 2 !important;
   }
   /* The native rightbar entry is visible by default. Users who prefer the
@@ -1100,6 +1106,17 @@ export const MOBILE_CSS = `
   button[aria-label="Add workspace"],
   button[aria-label="Add workspace…"] {
     display: none !important;
+  }
+}
+
+/* The native drawer opener only exists below 768px. In the remaining mobile
+ * range, Pocket's absolute header buttons sit outside the title cluster;
+ * DSH's gradient mask hides them there even though they still receive clicks.
+ * Keep the cluster's horizontal scroll, but remove its paint mask. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
   }
 }
 
