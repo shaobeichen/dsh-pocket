@@ -447,3 +447,38 @@ test('CSS 里不允许嵌套 :has()（会让整条逗号组规则被浏览器丢
   }
   assert.ok(checked > 5, '应当真的检查到了若干 :has() 规则');
 });
+
+// DSH 0.2.2 把侧栏本体也标成 role="dialog" aria-modal="true"，裸
+// querySelector('[aria-modal="true"]') 会命中抽屉自己，三个守卫全部误判成
+// 「有弹窗在场」：Escape 关不掉、点会话行不导航、点抽屉外空白不关闭。
+// 这条测试把「只认抽屉之外的 aria-modal」钉住，防止回退成裸查询。
+test('抽屉守卫只把抽屉之外的 aria-modal 当真弹窗', () => {
+  const src = readFileSync(new URL('../client/mobile/MobileNavOverlay.tsx', import.meta.url), 'utf8');
+  assert.ok(
+    src.includes('function hasModalOutsideDrawer()'),
+    '三个守卫必须共用一个 hasModalOutsideDrawer() helper',
+  );
+  assert.ok(
+    src.includes("modal.closest('[class*=\"_sidebarCol\"]')"),
+    'helper 必须按 sidebarCol 排除抽屉自己的 aria-modal',
+  );
+  // 裸查询只剩 helper 内部那一处（modals 收集），业务判定里不允许再出现。
+  const bare = src.match(/document\.querySelector\('[^']*aria-modal[^']*'\)/g) ?? [];
+  assert.deepEqual(
+    bare,
+    [],
+    '业务逻辑里不允许再直接 querySelector(aria-modal)：' + bare.join(' / '),
+  );
+  assert.ok(
+    src.includes('event.key === \'Escape\' && !hasModalOutsideDrawer()'),
+    'Escape 守卫必须走 helper',
+  );
+  assert.ok(
+    src.includes("if (hasModalOutsideDrawer()) return null"),
+    '导航守卫必须走 helper',
+  );
+  assert.ok(
+    /if \(hasModalOutsideDrawer\(\)\) return\s*$/m.test(src),
+    '抽屉外点击守卫必须走 helper',
+  );
+});

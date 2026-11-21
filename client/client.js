@@ -264,6 +264,13 @@ function useMobile() {
 function findFrame() {
   return document.querySelector("[data-shell-overlay]")?.parentElement ?? null;
 }
+function hasModalOutsideDrawer() {
+  const modals = document.querySelectorAll('[aria-modal="true"]');
+  for (const modal of modals) {
+    if (modal.closest('[class*="_sidebarCol"]') === null) return true;
+  }
+  return false;
+}
 function MobileNavOverlay({ toggleSidebar, t }) {
   const mobile = useMobile();
   const [open, setOpen] = (0, import_react.useState)(false);
@@ -304,7 +311,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
   (0, import_react.useEffect)(() => {
     if (!mobile || !open) return;
     const onKeyDown = (event) => {
-      if (event.key === "Escape" && document.querySelector('[aria-modal="true"]') === null) toggleSidebar();
+      if (event.key === "Escape" && !hasModalOutsideDrawer()) toggleSidebar();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
@@ -357,7 +364,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
       navTimer = window.setTimeout(disarmNav, 2e3);
     };
     const navigationTarget = (target) => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return null;
+      if (hasModalOutsideDrawer()) return null;
       const frame = document.querySelector('[data-mobile-nav="frame"]');
       if (frame === null || frame.hasAttribute("data-sidebar-collapsed")) return null;
       if (!(target instanceof Element)) return null;
@@ -412,7 +419,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
   (0, import_react.useEffect)(() => {
     if (!mobile || !open) return;
     const onOutsideClick = (event) => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return;
+      if (hasModalOutsideDrawer()) return;
       const target = event.target;
       if (target === null) return;
       if (target.closest(TOGGLE_SELECTOR) !== null) return;
