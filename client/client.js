@@ -2746,7 +2746,7 @@ function PocketSettingsTab({ rpcCall, t }) {
         )
       ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
     ),
-    // 公网：标题行自带 开启/关闭 → 开启后：二维码+地址、地址模式行、访问密码行
+    // 公网：地址模式在状态加载后可编辑；二维码和访问密码只在隧道开启后显示。
     (0, import_react2.createElement)(
       "div",
       { style: styles.block },
@@ -2773,12 +2773,12 @@ function PocketSettingsTab({ rpcCall, t }) {
         { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
         fmt(t, "error", { detail: errText(tunnelStateDetail) || t("unknownError") })
       ) : !tunnelUrl && !isDesktop ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 8 } }, t("wanOffHint")) : null,
-      tunnelUrl ? (0, import_react2.createElement)(
+      status ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint"), t("qrFailed")),
+        tunnelUrl ? qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint"), t("qrFailed")) : null,
         // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
-        (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")),
+        tunnelUrl ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")) : null,
         // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
         row(
           t("modeLabel"),
@@ -2850,7 +2850,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           )
         ),
         // 访问密码行：值 + 自定义（自定义输入态整体替换）
-        status.accessToken ? row(
+        tunnelUrl && status.accessToken ? row(
           t("pinLabel"),
           customPin?.which === "public" ? null : (0, import_react2.createElement)(
             "span",
