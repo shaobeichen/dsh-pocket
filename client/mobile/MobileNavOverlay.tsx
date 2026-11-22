@@ -41,6 +41,29 @@ function findFrame(): HTMLElement | null {
 }
 
 /**
+ * Whether an actual modal dialog is open that should keep the drawer inert.
+ *
+ * DSH 0.2.2 marks the sidebar surface itself as `role="dialog"
+ * aria-modal="true"`, so a bare `querySelector('[aria-modal="true"]')` matches
+ * the drawer's own host even when no dialog is open. Every guard built on that
+ * check then reads "a modal is open" and bails out: Escape stops closing the
+ * drawer, session rows stop navigating away, and — the visible symptom —
+ * tapping the empty area beside the drawer no longer closes it. Only the
+ * header toggle still works, because it bypasses all three guards.
+ *
+ * Dialogs that legitimately belong to the drawer (settings, session log) are
+ * portaled into the sidebar DOM on purpose, which is why they are skipped
+ * rather than counted: closing the drawer would slide those panels off-screen.
+ */
+function hasModalOutsideDrawer(): boolean {
+  const modals = document.querySelectorAll('[aria-modal="true"]')
+  for (const modal of modals) {
+    if (modal.closest('[class*="_sidebarCol"]') === null) return true
+  }
+  return false
+}
+
+/**
  * Mobile shell overlay: owns the `data-mobile-nav` marker on the AppFrame
  * element (the CSS restructure keys off it), mirrors the frame's collapsed
  * state into React state, and renders the dimmed backdrop plus a floating
@@ -97,7 +120,7 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
   useEffect(() => {
     if (!mobile || !open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && document.querySelector('[aria-modal="true"]') === null) toggleSidebar()
+      if (event.key === 'Escape' && !hasModalOutsideDrawer()) toggleSidebar()
     }
     // Capture phase: run before the settings panel's own document-bubble Escape
     // handler, so the modal is still present when we yield to it.
@@ -171,7 +194,7 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
     }
 
     const navigationTarget = (target: EventTarget | null): Element | null => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return null
+      if (hasModalOutsideDrawer()) return null
       const frame = document.querySelector('[data-mobile-nav="frame"]')
       if (frame === null || frame.hasAttribute('data-sidebar-collapsed')) return null
       if (!(target instanceof Element)) return null
@@ -252,7 +275,7 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
   useEffect(() => {
     if (!mobile || !open) return
     const onOutsideClick = (event: MouseEvent) => {
-      if (document.querySelector('[aria-modal="true"]') !== null) return
+      if (hasModalOutsideDrawer()) return
       const target = event.target as HTMLElement | null
       if (target === null) return
       if (target.closest(TOGGLE_SELECTOR) !== null) return
