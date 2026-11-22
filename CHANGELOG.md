@@ -1,3 +1,14 @@
+## [2.13.2](https://github.com/shaobeichen/dsh-pocket/compare/v2.13.1...v2.13.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **client:** 存过的 mobile 布局不再压过窗口宽度（[#228](https://github.com/shaobeichen/dsh-pocket/issues/228)） ([1ec6fed](https://github.com/shaobeichen/dsh-pocket/commit/1ec6fedab51a9b155672385468233493639c37f6)), closes [#74](https://github.com/shaobeichen/dsh-pocket/issues/74) [#197](https://github.com/shaobeichen/dsh-pocket/issues/197)
+* **mobile:** 只把抽屉之外的 aria-modal 当真弹窗，修复点空白/Escape/点会话行收不回抽屉 ([#235](https://github.com/shaobeichen/dsh-pocket/issues/235)) ([a567d1d](https://github.com/shaobeichen/dsh-pocket/commit/a567d1d1320e8eb473a74b32e03138c7dd3410cc))
+* **mobile:** 恢复 768-1023px 侧栏入口可见性并对齐头部控件 ([#230](https://github.com/shaobeichen/dsh-pocket/issues/230)) ([2972c2b](https://github.com/shaobeichen/dsh-pocket/commit/2972c2b98761303f6a75b19a31d3cb3fee23cb68))
+* **proxy:** /dsh-pocket-ios/login 返回 404，iOS 回退到 /pocket-login 密码登录 ([#227](https://github.com/shaobeichen/dsh-pocket/issues/227)) ([dd70868](https://github.com/shaobeichen/dsh-pocket/commit/dd70868529ca4c59a90b544c14940aaa3bdea456))
+* **tunnel:** --metrics/--protocol 移到 run 子命令前，修复命名隧道启动（[#224](https://github.com/shaobeichen/dsh-pocket/issues/224)），隧道未启动也可编辑域名/Token ([#226](https://github.com/shaobeichen/dsh-pocket/issues/226)) ([b9534f6](https://github.com/shaobeichen/dsh-pocket/commit/b9534f6a56b6bb2e3617b7ac8db13931ff8764bc))
+
 ## [2.13.1](https://github.com/shaobeichen/dsh-pocket/compare/v2.13.0...v2.13.1) (2026-11-15)
 
 
