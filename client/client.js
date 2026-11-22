@@ -1677,7 +1677,8 @@ function resolveLayout({ urlValue, stored, narrowMatch }) {
   const url = String(urlValue ?? "").trim();
   if (url === "desktop") return "desktop";
   if (url === "mobile") return "mobile";
-  if (stored === "desktop" || stored === "mobile") return stored;
+  if (stored === "desktop") return "desktop";
+  if (stored === "mobile" && narrowMatch) return "mobile";
   return narrowMatch ? "mobile" : "desktop";
 }
 function persistLayoutFromUrl(urlValue) {

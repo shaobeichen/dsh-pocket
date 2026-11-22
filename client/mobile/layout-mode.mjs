@@ -4,6 +4,13 @@
 //   - 'auto' 不写 localStorage，仅按 matchMedia 走；
 //   - 显式 'desktop' / 'mobile' 同步到 localStorage，下次无 URL 参数也走同样布局。
 //
+// localStorage 是按浏览器隔离的，但一次误开就会写入（issue #228：桌面浏览器
+// 打开一次带 ?dsh-layout=mobile 的配对链接，宽屏页面被永久钉在移动布局）。
+// 所以存过的偏好按方向区别对待：
+//   - 存过 'desktop'：任何视口都生效（#74 主场景，窄屏设备也尊重显式选择）；
+//   - 存过 'mobile'：只在当前视口确实是窄屏时生效——宽屏浏览器里没人会想
+//     长期用移动布局，误存即忽略；真想强制走 URL 参数（每次生效，不落盘）。
+//
 // 纯函数，便于单测；mobile-apply.tsx 读 DOM/localStorage 喂进来。
 
 /** @typedef {'mobile' | 'desktop'} ForcedLayout */
@@ -14,7 +21,8 @@ export function resolveLayout({ urlValue, stored, narrowMatch }) {
   if (url === 'desktop') return 'desktop';
   if (url === 'mobile') return 'mobile';
   // 'auto' / 空 / 非法值 → 用 localStorage / matchMedia
-  if (stored === 'desktop' || stored === 'mobile') return stored;
+  if (stored === 'desktop') return 'desktop';
+  if (stored === 'mobile' && narrowMatch) return 'mobile';
   return narrowMatch ? 'mobile' : 'desktop';
 }
 

@@ -16,8 +16,20 @@ test('resolveLayout: URL mobile 优先于一切（含宽屏）', () => {
 
 test('resolveLayout: URL auto / 空 → 退到 localStorage', () => {
   assert.equal(resolveLayout({ urlValue: 'auto', stored: 'desktop', narrowMatch: true }), 'desktop');
-  assert.equal(resolveLayout({ urlValue: '', stored: 'mobile', narrowMatch: false }), 'mobile');
+  // issue #228：存过的 mobile 在宽屏下不生效——桌面浏览器误开一次配对链接
+  // 不应被永久钉在移动布局。真想强制走 URL 参数（每次生效，不落盘）。
+  assert.equal(resolveLayout({ urlValue: '', stored: 'mobile', narrowMatch: false }), 'desktop');
   assert.equal(resolveLayout({ urlValue: 'auto', stored: 'invalid', narrowMatch: true }), 'mobile');
+});
+
+test('resolveLayout: 存过的 mobile 偏好只在窄屏生效（issue #228）', () => {
+  assert.equal(resolveLayout({ urlValue: '', stored: 'mobile', narrowMatch: true }), 'mobile');
+  assert.equal(resolveLayout({ urlValue: 'auto', stored: 'mobile', narrowMatch: false }), 'desktop');
+});
+
+test('resolveLayout: 存过的 desktop 偏好在任何视口都生效（保留 #74 持久化）', () => {
+  assert.equal(resolveLayout({ urlValue: '', stored: 'desktop', narrowMatch: false }), 'desktop');
+  assert.equal(resolveLayout({ urlValue: '', stored: 'desktop', narrowMatch: true }), 'desktop');
 });
 
 test('resolveLayout: 都无 → 按 matchMedia 决定', () => {
