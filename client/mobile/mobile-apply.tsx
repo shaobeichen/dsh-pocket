@@ -4,6 +4,7 @@ import { MobileNavToggle } from './MobileNavToggle.tsx'
 import { MobileNavOverlay } from './MobileNavOverlay.tsx'
 import { MobileDrawerFooter } from './MobileDrawerFooter.tsx'
 import { startAddWorkspaceHider } from './add-workspace.ts'
+import { installComposerEnterGuard } from './composer-enter.ts'
 import { MOBILE_CSS } from './mobile.css.ts'
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, MOBILE_RIGHTBAR_ATTRIBUTE, MOBILE_RIGHTBAR_EVENT } from '../api.js'
 import { NS, en, ja, zh } from './locales.ts'
@@ -34,6 +35,13 @@ export function mobileApply(ctx): void {
   const stored = persistLayoutFromUrl(urlValue);
   const layout = resolveLayout({ urlValue, stored, narrowMatch: narrowMQ.matches });
   document.body?.setAttribute('data-dsh-pocket-layout', layout);
+  // 软键盘上的 Enter/换行键只换行、不发送（composer-enter.ts）。装在 layout
+  // 早退之前：手机即使显式选了 desktop 布局，也不该被软键盘回车把草稿发出去；
+  // 非触屏桌面端在事件里被判掉，行为不变。
+  ctx.effect(
+    () => installComposerEnterGuard(),
+    'dsh-mobile-nav: touch keyboard Enter inserts a line break instead of sending',
+  )
   if (layout === 'desktop') return;
   // 强制 mobile：narrow 永远 true；宽度变化不再切换（用户已显式选 mobile）
   // auto 模式：narrow 是真实的 matchMedia，宽度变化会触发 effect 挂载/卸载
