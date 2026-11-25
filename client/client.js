@@ -511,6 +511,52 @@ function startAddWorkspaceHider() {
   return () => observer.disconnect();
 }
 
+// client/mobile/composer-enter.ts
+var COMPOSER_INPUT_SELECTOR = "[data-composer-input]";
+var HIGHLIGHTED_MENU_SELECTOR = '[role="listbox"][aria-activedescendant]';
+function isSoftKeyboardDevice() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  try {
+    if (window.matchMedia("(pointer: coarse)").matches) return true;
+    return window.matchMedia("(hover: none)").matches && (navigator.maxTouchPoints ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+function isComposerEnter(event) {
+  if (event.defaultPrevented || event.key !== "Enter") return false;
+  if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.isComposing || event.keyCode === 229) return false;
+  if (typeof event.getModifierState === "function" && event.getModifierState("AltGraph")) return false;
+  const target = event.target;
+  if (!(target instanceof Element)) return false;
+  const input = target.closest(COMPOSER_INPUT_SELECTOR);
+  if (!(input instanceof HTMLElement) || !input.isContentEditable) return false;
+  return !input.hasAttribute("data-composer-composing");
+}
+function claimShiftEnter(event) {
+  try {
+    Object.defineProperty(event, "shiftKey", { value: true, configurable: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function installComposerEnterGuard(options = {}) {
+  const softKeyboard = options.isSoftKeyboard ?? isSoftKeyboardDevice;
+  const hasHighlightedMenu = options.hasHighlightedMenu ?? (() => document.querySelector(HIGHLIGHTED_MENU_SELECTOR) !== null);
+  const onKeyDown = (event) => {
+    if (!softKeyboard()) return;
+    if (!isComposerEnter(event)) return;
+    if (hasHighlightedMenu()) return;
+    claimShiftEnter(event);
+  };
+  document.addEventListener("keydown", onKeyDown, true);
+  return () => {
+    document.removeEventListener("keydown", onKeyDown, true);
+  };
+}
+
 // client/mobile/mobile.css.ts
 var MOBILE_CSS = `
 /* ---------- base control styles (rendered at any width, hidden where unused) ---------- */
@@ -1704,6 +1750,10 @@ function mobileApply(ctx) {
   const stored = persistLayoutFromUrl(urlValue);
   const layout = resolveLayout({ urlValue, stored, narrowMatch: narrowMQ.matches });
   document.body?.setAttribute("data-dsh-pocket-layout", layout);
+  ctx.effect(
+    () => installComposerEnterGuard(),
+    "dsh-mobile-nav: touch keyboard Enter inserts a line break instead of sending"
+  );
   if (layout === "desktop") return;
   let narrow = narrowMQ;
   if (layout === "mobile") {
