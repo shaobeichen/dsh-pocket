@@ -1201,8 +1201,11 @@ test('upstreamPathWithLaunchToken（issue #77）：首屏根路径补 token，�
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', undefined, TOK), `/?token=${TOK}`, '根路径补 token');
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'other=1', TOK), `/?token=${TOK}`, '无会话 cookie 也补');
   assert.equal(upstreamPathWithLaunchToken('/?x=1', 'GET', undefined, TOK), `/?x=1&token=${TOK}`, '保留原有 query');
-  // 已有会话 cookie → 不补（否则上游 303 会死循环）
-  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-abc=xyz', TOK), '/', '有会话 cookie 不补');
+  // 尚未学到当前 cookie 名（knownAuthNames 默认 null）：无法区分新旧 cookie，
+  // 一律补一次 token（多一次 303 握手，学到名字后停止；issue #185 重启死锁修复）
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-abc=xyz', TOK), `/?token=${TOK}`, '未学到名字时补 token（一次握手）');
+  // 学到名字后，当前有效 cookie 不再补（保留 #77 防 303 循环优化）
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-abc=xyz', TOK, new Set(['dsh-auth-abc'])), '/', '学到名字且 cookie 匹配 → 不补');
   // 非根路径 / 非 GET → 不补
   assert.equal(upstreamPathWithLaunchToken('/api/events.mux', 'GET', undefined, TOK), '/api/events.mux', 'API 路径不补');
   assert.equal(upstreamPathWithLaunchToken('/', 'POST', undefined, TOK), '/', '非 GET 不补');
@@ -1498,11 +1501,11 @@ test('?token=<原始 PIN> 直达种 HttpOnly cookie，issue #35', async () => {
 
 // ---------- issue #185：按「当前上游」的 cookie 名判定会话 ----------
 
-test('issue #185：hasUsableAuthCookie 只认学到的当前 cookie 名，未学到时退回旧行为', () => {
+test('issue #185：hasUsableAuthCookie 只认学到的当前 cookie 名，未学到时一律不认（补一次握手）', () => {
   assert.equal(hasUsableAuthCookie(undefined, null), false);
   assert.equal(hasUsableAuthCookie('foo=1', new Set(['dsh-auth-current'])), false);
-  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', null), true, '没学到名字 → 完全退回前缀判断');
-  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', new Set()), true, '空集合同理（避免 303 死循环）');
+  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', null), false, '没学到名字 → 不信任（补 token 走一次握手）');
+  assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', new Set()), false, '空集合同理（避免 stale cookie 死锁）');
   assert.equal(hasUsableAuthCookie('dsh-auth-OLDPORT=stale', new Set(['dsh-auth-current'])), false, '旧端口残留 cookie 不算已登录');
   assert.equal(hasUsableAuthCookie('dsh_pocket_token=x; dsh-auth-current=1', new Set(['dsh-auth-current'])), true);
 });
@@ -1511,7 +1514,7 @@ test('issue #185：旧 authority 的 cookie 不再阻止补 launch token', () =>
   const names = new Set(['dsh-auth-current']);
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-OLDPORT=stale', 'TOK', names), '/?token=TOK');
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-current=1', 'TOK', names), '/');
-  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-OLDPORT=stale', 'TOK'), '/', '未学到名字时行为零变化');
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-OLDPORT=stale', 'TOK'), '/?token=TOK', '未学到名字时补一次 token（重启死锁修复）');
   assert.equal(upstreamPathWithLaunchToken('/?dsh-pocket-auth=1', 'GET', 'dsh-auth-current=1', 'TOK', names), '/?dsh-pocket-auth=1&token=TOK', 'force 仍优先');
 });
 
@@ -1551,6 +1554,50 @@ test('issue #185：端到端——学到 cookie 名后，旧端口残留 cookie 
     assert.equal(stale.status, 200, '旧 cookie 不再导致裸 401 / 反复重连');
     assert.equal(stale.headers['x-dsh-pocket-handshake'], 'transition', '直接补 token 重做握手');
     assert.ok(seen[seen.length - 1].includes('token=' + TOK), '确实重新向上游发了 launch token');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => upstream.close(r));
+  }
+});
+
+test('issue #185 重启死锁修复：未学到名字时 stale cookie 不再吞掉首握手，直接补 token 恢复', async () => {
+  const http = await import('node:http');
+  const TOK = 'launch-restart';
+  const COOKIE = 'dsh-auth-FRESH=1';
+  const seen = [];
+  const upstream = http.createServer((req, res) => {
+    seen.push(req.url);
+    const u = new URL(req.url ?? '/', 'http://x');
+    // 模拟真实 DSH：根路径只有 token 握手或有效会话 cookie 才放行，
+    // 旧 authority 的 stale cookie 既非 token 也非当前 cookie → 返回 200 登录页（不 401）。
+    if (u.pathname === '/' && u.searchParams.get('token') === TOK) {
+      res.writeHead(303, { location: '/', 'set-cookie': COOKIE + '; Path=/; HttpOnly' });
+      res.end();
+      return;
+    }
+    if (String(req.headers.cookie ?? '').split(/;\s*/).includes(COOKIE)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end('index');
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<title>Connect to this Host</title>');
+  });
+  await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: upstream.address().port },
+    injectHtml: '', launchToken: () => TOK, handshakeLimit: 10,
+  });
+  try {
+    // 首次访问就带旧 authority 的 stale cookie（手机重启 dsh 后的真实状态）。
+    // 修复前：knownAuthNames 空 → 前缀判断 return true → 不补 token → 透传 stale → 卡登录页。
+    // 修复后：不信任未学到的名字 → 补一次 token → 上游 303 + Set-Cookie → 学到名字。
+    const stale = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: 'dsh-auth-OLDPORT=stale' });
+    assert.equal(stale.headers['x-dsh-pocket-handshake'], 'transition', 'stale cookie 被重做握手而非透传');
+    assert.ok(seen[0].includes('token=' + TOK), '首次请求就带了 launch token');
+    // 握手学到名字后，后续裸请求（带新 cookie）直接放行，不再补 token
+    const after = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: COOKIE });
+    assert.equal(after.headers['x-dsh-pocket-handshake'], undefined, '有效 cookie 不再握手');
   } finally {
     await proxy.close();
     await new Promise((r) => upstream.close(r));
@@ -1617,10 +1664,12 @@ test('issue #217：XHR 风格请求拿到原始 401，不被 303 重做握手劫
     injectHtml: '', launchToken: () => 'TOK', handshakeLimit: 10,
   });
   try {
-    // 浏览器导航（accept: text/html）会 303 重做握手
+    // 首次浏览器导航：未学到 cookie 名时补一次 token（#185 重启死锁修复）。
+    // 本 mock 对带 token 也恒 401（模拟上游拒发），代理不应改写成 303 重做握手，
+    // 浏览器导航拿到的是上游原始 401。
     const nav = await getWithHost(proxy.port, 'abc.trycloudflare.com', { cookie: 'dsh-auth-abc=stale' });
-    assert.equal(nav.status, 303, '浏览器导航仍走 303 恢复');
-    // XHR/fetch（accept: application/json）应拿到原始 401，否则会把跳转后的 HTML 当接口响应解析
+    assert.equal(nav.status, 401, '浏览器导航拿到上游原始 401（未被代理 303 劫持）');
+    // XHR/fetch（accept: application/json）必须拿到原始 401，否则会把跳转后的 HTML 当接口响应解析
     const xhr = await requestWithHost(proxy.port, '/', 'abc.trycloudflare.com', {
       cookie: 'dsh-auth-abc=stale', accept: 'application/json',
     });
